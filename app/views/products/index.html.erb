@@ -5,12 +5,13 @@
   </div>
   <div class="flex space-x-3">
     <%= link_to "Back to Shop", shop_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
+    <%= link_to "New Import", new_shop_import_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
     <%= link_to "New Product", new_shop_product_path(@shop), class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700" %>
   </div>
 </div>
 
 <% if @products.any? %>
-  <%= form_with url: bulk_update_margin_shop_products_path(@shop), method: :post, class: "mb-4" do |f| %>
+  <%= form_with url: bulk_update_margin_shop_products_path(@shop), method: :post, class: "mb-4", id: "bulk-margin-form" do |f| %>
     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
       <div class="flex items-center space-x-4">
         <label class="text-sm font-medium text-gray-700">Bulk Update Margin:</label>

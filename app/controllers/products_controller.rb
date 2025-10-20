@@ -1,6 +1,6 @@
 class ProductsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_shop, only: [:index, :new, :create, :edit, :update, :destroy, :bulk_update_margin]
+  before_action :set_shop, only: [:index, :show, :new, :create, :edit, :update, :destroy, :bulk_update_margin]
   before_action :set_product, only: [:show, :edit, :update, :destroy]
   before_action :authorize_shop, only: [:new, :create, :edit, :update, :destroy, :bulk_update_margin]
 
@@ -9,13 +9,7 @@ class ProductsController < ApplicationController
   end
 
   def show
-    # Standalone show - find product by ID and check user has access via shop
-    @product = Product.find(params[:id])
-    @shop = @product.shop
-
-    unless @shop.users.include?(current_user)
-      redirect_to shops_path, alert: 'You do not have access to this product.'
-    end
+    # @shop and @product are already set by before_action filters
   end
 
   def new

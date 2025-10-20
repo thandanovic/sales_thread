@@ -83,7 +83,7 @@
       <% if @products.any? %>
         <% @products.each do |product| %>
           <li class="px-4 py-4 sm:px-6 hover:bg-gray-50">
-            <%= link_to product_path(product), class: "block" do %>
+            <%= link_to shop_product_path(@shop, product), class: "block" do %>
               <div class="flex items-center justify-between">
                 <p class="text-sm font-medium text-gray-900 truncate"><%= product.title %></p>
                 <div class="ml-2 flex-shrink-0">

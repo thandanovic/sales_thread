@@ -8,7 +8,7 @@ Rails.application.routes.draw do
   # Authenticated routes
   authenticate :user do
     resources :shops do
-      resources :products, except: [:show] do
+      resources :products do
         collection do
           post :bulk_update_margin
         end
@@ -20,9 +20,6 @@ Rails.application.routes.draw do
         end
       end
     end
-
-    # Standalone product show (for viewing product details)
-    resources :products, only: [:show]
   end
 
   # Health check

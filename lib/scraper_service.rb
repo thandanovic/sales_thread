@@ -355,6 +355,9 @@ class ScraperService
       source_id: source_id
     )
 
+    # Check if this is an update
+    is_update = product.persisted?
+
     # Default price to 0 if not present
     price = product_data['price'] || 0.0
 
@@ -367,19 +370,27 @@ class ScraperService
       branch_availability: product_data['branch_availability'],
       quantity: product_data['quantity'],
       description: product_data['description'],
-      specs: product_data['specs']&.to_json
+      specs: product_data['specs']&.to_json,
+      refreshed_at: Time.current
     )
 
     product.save!
 
     # Download and attach images - clear old images first if updating
     if product_data['images'].present?
-      product.images.purge if product.persisted? && product.images.attached?
+      product.images.purge if is_update && product.images.attached?
       download_images(product, product_data['images'])
     end
 
     # Update import log if provided
     import_log&.increment!(:successful_rows)
+
+    # Log update vs create
+    if is_update
+      Rails.logger.info "[Scraper Import] Updated product #{product.sku} - #{product.title}"
+    else
+      Rails.logger.info "[Scraper Import] Created new product #{product.sku} - #{product.title}"
+    end
 
     product
   end

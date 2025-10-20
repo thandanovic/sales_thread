@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_10_20_105057) do
+ActiveRecord::Schema[8.0].define(version: 2025_10_20_200055) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -102,6 +102,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_20_105057) do
     t.decimal "final_price", precision: 10, scale: 2, default: "0.0"
     t.string "branch_availability"
     t.string "quantity"
+    t.datetime "refreshed_at"
     t.index ["shop_id"], name: "index_products_on_shop_id"
   end
 
