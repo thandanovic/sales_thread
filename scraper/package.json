@@ -1,0 +1,21 @@
+{
+  "name": "olx-scraper",
+  "version": "1.0.0",
+  "description": "Playwright scraper for Intercars",
+  "main": "index.js",
+  "scripts": {
+    "investigate": "node investigate.js",
+    "scrape": "node scrape.js",
+    "test-login": "node test-login.js"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.40.0",
+    "dotenv": "^16.3.1",
+    "playwright": "^1.40.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

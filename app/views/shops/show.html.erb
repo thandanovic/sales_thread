@@ -1,0 +1,176 @@
+<div class="mb-8 flex justify-between items-center">
+  <div>
+    <h1 class="text-3xl font-bold text-gray-900"><%= @shop.name %></h1>
+    <p class="mt-2 text-sm text-gray-700">Shop overview and recent activity</p>
+  </div>
+  <div class="flex space-x-3">
+    <%= link_to "Edit Shop", edit_shop_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" %>
+    <%= link_to "New Import", new_shop_import_path(@shop), class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" %>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 gap-6 sm:grid-cols-3 mb-8">
+  <div class="bg-white overflow-hidden shadow rounded-lg">
+    <div class="p-5">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">Total Products</dt>
+            <dd class="text-lg font-semibold text-gray-900"><%= @shop.products.count %></dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+    <div class="bg-gray-50 px-5 py-3">
+      <%= link_to "View all", shop_products_path(@shop), class: "text-sm font-medium text-indigo-600 hover:text-indigo-500" %>
+    </div>
+  </div>
+
+  <div class="bg-white overflow-hidden shadow rounded-lg">
+    <div class="p-5">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">Total Imports</dt>
+            <dd class="text-lg font-semibold text-gray-900"><%= @shop.import_logs.count %></dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+    <div class="bg-gray-50 px-5 py-3">
+      <%= link_to "View all", shop_imports_path(@shop), class: "text-sm font-medium text-indigo-600 hover:text-indigo-500" %>
+    </div>
+  </div>
+
+  <div class="bg-white overflow-hidden shadow rounded-lg">
+    <div class="p-5">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">Team Members</dt>
+            <dd class="text-lg font-semibold text-gray-900"><%= @shop.users.count %></dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+  <div class="bg-white shadow rounded-lg">
+    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-medium leading-6 text-gray-900">Recent Products</h3>
+        <%= link_to "View all", shop_products_path(@shop), class: "text-sm font-medium text-indigo-600 hover:text-indigo-500" %>
+      </div>
+    </div>
+    <ul class="divide-y divide-gray-200">
+      <% if @products.any? %>
+        <% @products.each do |product| %>
+          <li class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+            <%= link_to product_path(product), class: "block" do %>
+              <div class="flex items-center justify-between">
+                <p class="text-sm font-medium text-gray-900 truncate"><%= product.title %></p>
+                <div class="ml-2 flex-shrink-0">
+                  <% if product.published %>
+                    <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                      Published
+                    </p>
+                  <% else %>
+                    <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                      Draft
+                    </p>
+                  <% end %>
+                </div>
+              </div>
+              <div class="mt-2 sm:flex sm:justify-between">
+                <div class="sm:flex">
+                  <p class="flex items-center text-sm text-gray-500">
+                    <%= product.source.humanize %> - <%= number_to_currency(product.price || 0, unit: product.currency || "€") %>
+                  </p>
+                </div>
+                <div class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                  <p><%= time_ago_in_words(product.created_at) %> ago</p>
+                </div>
+              </div>
+            <% end %>
+          </li>
+        <% end %>
+      <% else %>
+        <li class="px-4 py-12 text-center">
+          <p class="text-sm text-gray-500">No products yet</p>
+          <%= link_to "Add Product", new_shop_product_path(@shop), class: "mt-2 inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-500" %>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+
+  <div class="bg-white shadow rounded-lg">
+    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-medium leading-6 text-gray-900">Recent Imports</h3>
+        <%= link_to "View all", shop_imports_path(@shop), class: "text-sm font-medium text-indigo-600 hover:text-indigo-500" %>
+      </div>
+    </div>
+    <ul class="divide-y divide-gray-200">
+      <% if @recent_imports.any? %>
+        <% @recent_imports.each do |import| %>
+          <li class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+            <%= link_to shop_import_path(@shop, import), class: "block" do %>
+              <div class="flex items-center justify-between">
+                <p class="text-sm font-medium text-gray-900 truncate">
+                  <%= import.source.humanize %> Import
+                </p>
+                <div class="ml-2 flex-shrink-0">
+                  <% status_class = case import.status
+                    when 'completed' then 'bg-green-100 text-green-800'
+                    when 'processing' then 'bg-blue-100 text-blue-800'
+                    when 'failed' then 'bg-red-100 text-red-800'
+                    else 'bg-gray-100 text-gray-800'
+                  end %>
+                  <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <%= status_class %>">
+                    <%= import.status %>
+                  </p>
+                </div>
+              </div>
+              <div class="mt-2 sm:flex sm:justify-between">
+                <div class="sm:flex">
+                  <p class="flex items-center text-sm text-gray-500">
+                    <% if import.total_rows.present? %>
+                      <%= import.successful_rows %> / <%= import.total_rows %> successful
+                    <% else %>
+                      No data
+                    <% end %>
+                  </p>
+                </div>
+                <div class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                  <p><%= time_ago_in_words(import.created_at) %> ago</p>
+                </div>
+              </div>
+            <% end %>
+          </li>
+        <% end %>
+      <% else %>
+        <li class="px-4 py-12 text-center">
+          <p class="text-sm text-gray-500">No imports yet</p>
+          <%= link_to "Start Import", new_shop_import_path(@shop), class: "mt-2 inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-500" %>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+</div>

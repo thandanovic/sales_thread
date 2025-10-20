@@ -1,0 +1,118 @@
+<% if user_signed_in? %>
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+    <p class="mt-2 text-sm text-gray-700">Welcome back, <%= current_user.email %></p>
+  </div>
+
+  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+    <div class="bg-white overflow-hidden shadow rounded-lg">
+      <div class="p-5">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <svg class="h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+          </div>
+          <div class="ml-5 w-0 flex-1">
+            <dl>
+              <dt class="text-sm font-medium text-gray-500 truncate">Total Shops</dt>
+              <dd class="text-lg font-semibold text-gray-900"><%= @shops.count %></dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-50 px-5 py-3">
+        <%= link_to "View all", shops_path, class: "text-sm font-medium text-indigo-600 hover:text-indigo-500" %>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div class="bg-white shadow rounded-lg">
+      <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-medium leading-6 text-gray-900">Your Shops</h3>
+          <%= link_to "New Shop", new_shop_path, class: "inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700" %>
+        </div>
+      </div>
+      <ul class="divide-y divide-gray-200">
+        <% if @shops.any? %>
+          <% @shops.each do |shop| %>
+            <li class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+              <%= link_to shop_path(shop), class: "block" do %>
+                <div class="flex items-center justify-between">
+                  <p class="text-sm font-medium text-indigo-600 truncate"><%= shop.name %></p>
+                  <div class="ml-2 flex-shrink-0 flex">
+                    <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                      <%= shop.products.count %> products
+                    </p>
+                  </div>
+                </div>
+                <div class="mt-2 sm:flex sm:justify-between">
+                  <div class="sm:flex">
+                    <p class="flex items-center text-sm text-gray-500">
+                      Created <%= time_ago_in_words(shop.created_at) %> ago
+                    </p>
+                  </div>
+                </div>
+              <% end %>
+            </li>
+          <% end %>
+        <% else %>
+          <li class="px-4 py-12 text-center">
+            <p class="text-sm text-gray-500">No shops yet. Create your first shop to get started!</p>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+
+    <div class="bg-white shadow rounded-lg">
+      <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+        <h3 class="text-lg font-medium leading-6 text-gray-900">Recent Imports</h3>
+      </div>
+      <ul class="divide-y divide-gray-200">
+        <% if @recent_imports && @recent_imports.any? %>
+          <% @recent_imports.each do |import| %>
+            <li class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+              <%= link_to shop_import_path(import.shop, import), class: "block" do %>
+                <div class="flex items-center justify-between">
+                  <p class="text-sm font-medium text-gray-900 truncate">
+                    <%= import.shop.name %>
+                  </p>
+                  <div class="ml-2 flex-shrink-0">
+                    <% status_class = case import.status
+                      when 'completed' then 'bg-green-100 text-green-800'
+                      when 'processing' then 'bg-blue-100 text-blue-800'
+                      when 'failed' then 'bg-red-100 text-red-800'
+                      else 'bg-gray-100 text-gray-800'
+                    end %>
+                    <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <%= status_class %>">
+                      <%= import.status %>
+                    </p>
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <p class="text-sm text-gray-500">
+                    <%= import.source.humanize %> - <%= time_ago_in_words(import.created_at) %> ago
+                  </p>
+                </div>
+              <% end %>
+            </li>
+          <% end %>
+        <% else %>
+          <li class="px-4 py-12 text-center">
+            <p class="text-sm text-gray-500">No recent imports</p>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  </div>
+<% else %>
+  <div class="text-center py-12">
+    <h1 class="text-4xl font-bold text-gray-900 mb-4">Welcome to OLX Integration</h1>
+    <p class="text-lg text-gray-600 mb-8">
+      Manage your product imports from CSV and Intercars with ease
+    </p>
+    <%= link_to "Sign in to get started", new_user_session_path, class: "inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" %>
+  </div>
+<% end %>

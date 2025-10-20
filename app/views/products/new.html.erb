@@ -1,0 +1,10 @@
+<div class="max-w-3xl">
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">New Product</h1>
+    <p class="mt-2 text-sm text-gray-700">Add a new product to <%= @shop.name %></p>
+  </div>
+
+  <div class="bg-white shadow rounded-lg p-6">
+    <%= render "form", product: @product %>
+  </div>
+</div>

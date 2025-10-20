@@ -1,0 +1,22 @@
+# Environment variables
+.env
+
+# Node modules
+node_modules/
+
+# Playwright browsers
+.cache/
+
+# Output data
+data/*.json
+data/*.html
+
+# Screenshots
+screenshots/*.png
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

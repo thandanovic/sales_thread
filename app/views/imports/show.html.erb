@@ -1,0 +1,261 @@
+<div class="max-w-6xl mx-auto">
+  <!-- Header -->
+  <div class="mb-8">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">Import Details</h1>
+        <p class="mt-2 text-sm text-gray-600">
+          <%= @import.source.humanize %> Import • Created <%= time_ago_in_words(@import.created_at) %> ago
+        </p>
+      </div>
+      <%= link_to "Back to Imports", shop_imports_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" %>
+    </div>
+  </div>
+
+  <!-- Status Card -->
+  <div class="bg-white shadow-lg rounded-lg p-6 mb-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Import Status</h3>
+        <div class="flex items-center space-x-4">
+          <% status_config = case @import.status
+            when 'completed'
+              { class: 'bg-green-100 text-green-800 border-green-200', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', text: 'Completed' }
+            when 'completed_with_errors'
+              { class: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', text: 'Completed with Errors' }
+            when 'processing'
+              { class: 'bg-blue-100 text-blue-800 border-blue-200', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', text: 'Processing' }
+            when 'failed'
+              { class: 'bg-red-100 text-red-800 border-red-200', icon: 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z', text: 'Failed' }
+            else
+              { class: 'bg-gray-100 text-gray-800 border-gray-200', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', text: 'Pending' }
+          end %>
+
+          <span class="inline-flex items-center px-4 py-2 rounded-lg border-2 font-semibold <%= status_config[:class] %>">
+            <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<%= status_config[:icon] %>" />
+            </svg>
+            <%= status_config[:text] %>
+          </span>
+        </div>
+      </div>
+
+      <% if @import.status == 'pending' %>
+        <%= button_to "Start Processing", start_processing_shop_import_path(@shop, @import), method: :post, class: "inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500" %>
+      <% end %>
+    </div>
+
+    <!-- Progress Stats -->
+    <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-4">
+      <div class="bg-gray-50 overflow-hidden rounded-lg px-4 py-5 sm:p-6">
+        <dt class="text-sm font-medium text-gray-500 truncate">Total Products</dt>
+        <dd class="mt-1 text-3xl font-semibold text-gray-900"><%= @import.total_rows || 0 %></dd>
+      </div>
+
+      <div class="bg-green-50 overflow-hidden rounded-lg px-4 py-5 sm:p-6">
+        <dt class="text-sm font-medium text-green-600 truncate">Successful</dt>
+        <dd class="mt-1 text-3xl font-semibold text-green-900"><%= @import.successful_rows || 0 %></dd>
+      </div>
+
+      <div class="bg-red-50 overflow-hidden rounded-lg px-4 py-5 sm:p-6">
+        <dt class="text-sm font-medium text-red-600 truncate">Failed</dt>
+        <dd class="mt-1 text-3xl font-semibold text-red-900"><%= @import.failed_rows || 0 %></dd>
+      </div>
+
+      <div class="bg-blue-50 overflow-hidden rounded-lg px-4 py-5 sm:p-6">
+        <dt class="text-sm font-medium text-blue-600 truncate">Processing</dt>
+        <dd class="mt-1 text-3xl font-semibold text-blue-900"><%= @import.processed_rows || 0 %></dd>
+      </div>
+    </div>
+
+    <!-- Timestamps -->
+    <div class="mt-6 border-t border-gray-200 pt-4">
+      <dl class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div>
+          <dt class="text-sm font-medium text-gray-500">Started At</dt>
+          <dd class="mt-1 text-sm text-gray-900">
+            <%= @import.started_at ? @import.started_at.strftime('%Y-%m-%d %H:%M:%S') : 'Not started' %>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-gray-500">Completed At</dt>
+          <dd class="mt-1 text-sm text-gray-900">
+            <%= @import.completed_at ? @import.completed_at.strftime('%Y-%m-%d %H:%M:%S') : 'Not completed' %>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-gray-500">Duration</dt>
+          <dd class="mt-1 text-sm text-gray-900">
+            <% if @import.started_at && @import.completed_at %>
+              <%= distance_of_time_in_words(@import.started_at, @import.completed_at) %>
+            <% elsif @import.started_at %>
+              <%= distance_of_time_in_words(@import.started_at, Time.current) %> (ongoing)
+            <% else %>
+              N/A
+            <% end %>
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- Error Messages -->
+  <% if @import.error_messages.present? %>
+    <div class="bg-red-50 border-l-4 border-red-400 p-6 mb-6 rounded-lg shadow">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div class="ml-3 flex-1">
+          <h3 class="text-lg font-medium text-red-800 mb-3">
+            <% errors = JSON.parse(@import.error_messages) rescue [@import.error_messages] %>
+            <% error_count = errors.is_a?(Array) ? errors.length : 1 %>
+            Import Errors (<%= error_count %>)
+          </h3>
+
+          <div class="text-sm text-red-700 space-y-3">
+            <% if errors.is_a?(Array) %>
+              <% if errors.length > 10 %>
+                <!-- Show first 10 errors with expand option -->
+                <div id="error-list">
+                  <ul class="list-disc list-inside space-y-2 mb-3">
+                    <% errors.first(10).each_with_index do |error, index| %>
+                      <li class="leading-relaxed">
+                        <strong class="font-medium">#<%= index + 1 %>:</strong> <%= error %>
+                      </li>
+                    <% end %>
+                  </ul>
+
+                  <details class="mt-4">
+                    <summary class="cursor-pointer text-red-800 font-medium hover:text-red-900">
+                      Show <%= errors.length - 10 %> more errors...
+                    </summary>
+                    <ul class="list-disc list-inside space-y-2 mt-3 ml-4">
+                      <% errors[10..-1].each_with_index do |error, index| %>
+                        <li class="leading-relaxed">
+                          <strong class="font-medium">#<%= index + 11 %>:</strong> <%= error %>
+                        </li>
+                      <% end %>
+                    </ul>
+                  </details>
+                </div>
+              <% else %>
+                <ul class="list-disc list-inside space-y-2">
+                  <% errors.each_with_index do |error, index| %>
+                    <li class="leading-relaxed">
+                      <strong class="font-medium">#<%= index + 1 %>:</strong> <%= error %>
+                    </li>
+                  <% end %>
+                </ul>
+              <% end %>
+            <% else %>
+              <div class="p-3 bg-red-100 rounded border border-red-200">
+                <p class="font-mono text-xs"><%= errors %></p>
+              </div>
+            <% end %>
+          </div>
+
+          <% if @import.failed_rows && @import.failed_rows > 0 %>
+            <div class="mt-4 pt-4 border-t border-red-200">
+              <p class="text-sm text-red-800">
+                <strong>Summary:</strong> <%= @import.failed_rows %> out of <%= @import.total_rows %> products failed to import.
+                <%= link_to "View failed products below", "#imported-products", class: "underline hover:text-red-900" %>
+              </p>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <!-- Metadata -->
+  <% if @import.metadata.present? %>
+    <div class="bg-white shadow-lg rounded-lg p-6 mb-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Import Configuration</h3>
+      <% metadata = JSON.parse(@import.metadata) rescue {} %>
+      <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <% metadata.each do |key, value| %>
+          <% next if key == 'password' || key == 'save_credentials' %>
+          <div class="border-b border-gray-200 pb-2">
+            <dt class="text-sm font-medium text-gray-500"><%= key.humanize %></dt>
+            <dd class="mt-1 text-sm text-gray-900"><%= value %></dd>
+          </div>
+        <% end %>
+      </dl>
+    </div>
+  <% end %>
+
+  <!-- Imported Products -->
+  <div id="imported-products" class="bg-white shadow-lg rounded-lg overflow-hidden">
+    <div class="px-6 py-5 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">Imported Products</h3>
+      <% if @import.has_errors? %>
+        <p class="mt-1 text-sm text-gray-500">
+          Showing all products including <%= @import.failed_rows %> failed imports
+        </p>
+      <% end %>
+    </div>
+
+    <% if @imported_products.any? %>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Error</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <% @imported_products.each do |imported_product| %>
+              <tr>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm font-medium text-gray-900">
+                    <%= imported_product.product&.title || JSON.parse(imported_product.raw_data)['title'] rescue 'N/A' %>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <%= imported_product.product&.sku || JSON.parse(imported_product.raw_data)['sku'] rescue 'N/A' %>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <% status_class = case imported_product.status
+                    when 'imported' then 'bg-green-100 text-green-800'
+                    when 'error' then 'bg-red-100 text-red-800'
+                    when 'processing' then 'bg-blue-100 text-blue-800'
+                    else 'bg-gray-100 text-gray-800'
+                  end %>
+                  <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <%= status_class %>">
+                    <%= imported_product.status %>
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-red-600">
+                  <%= imported_product.error_text&.truncate(50) %>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <% if imported_product.product %>
+                    <%= link_to "View", shop_product_path(@shop, imported_product.product), class: "text-indigo-600 hover:text-indigo-900" %>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="px-6 py-4 border-t border-gray-200">
+        <%= paginate @imported_products %>
+      </div>
+    <% else %>
+      <div class="px-6 py-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+        </svg>
+        <p class="mt-2 text-sm text-gray-500">No imported products yet</p>
+      </div>
+    <% end %>
+  </div>
+</div>
