@@ -26,6 +26,21 @@
     </div>
   <% end %>
 
+  <%= form_with url: bulk_destroy_shop_products_path(@shop), method: :delete, class: "mb-4", id: "bulk-delete-form", data: { turbo_confirm: "Are you sure? This will permanently delete the selected products and all associated data (images, OLX listings, import records). This action cannot be undone." } do |f| %>
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between">
+      <div class="flex items-center space-x-4">
+        <svg class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <label class="text-sm font-medium text-red-700">Bulk Delete Products:</label>
+        <span class="text-sm text-red-600">Selected products and all associated data will be permanently deleted</span>
+      </div>
+      <div class="flex items-center space-x-3">
+        <%= f.submit "Delete Selected", class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" %>
+      </div>
+    </div>
+  <% end %>
+
   <div class="bg-white shadow overflow-x-auto rounded-lg">
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
@@ -53,7 +68,7 @@
         <% @products.each do |product| %>
           <tr class="hover:bg-gray-50">
             <td class="px-6 py-4 whitespace-nowrap">
-              <input type="checkbox" name="product_ids[]" value="<%= product.id %>" class="product-checkbox h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" form="bulk-margin-form">
+              <input type="checkbox" name="product_ids[]" value="<%= product.id %>" class="product-checkbox h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <% if product.images.attached? %>
@@ -123,26 +138,77 @@
       const productCheckboxes = document.querySelectorAll('.product-checkbox');
       const selectAllBtn = document.getElementById('select-all-btn');
       const deselectAllBtn = document.getElementById('deselect-all-btn');
+      const bulkMarginForm = document.getElementById('bulk-margin-form');
+      const bulkDeleteForm = document.getElementById('bulk-delete-form');
 
+      // Sync checkboxes with select all checkbox
       selectAllCheckbox.addEventListener('change', function() {
         productCheckboxes.forEach(cb => cb.checked = this.checked);
       });
 
+      // Select all button
       selectAllBtn.addEventListener('click', function() {
         productCheckboxes.forEach(cb => cb.checked = true);
         selectAllCheckbox.checked = true;
       });
 
+      // Deselect all button
       deselectAllBtn.addEventListener('click', function() {
         productCheckboxes.forEach(cb => cb.checked = false);
         selectAllCheckbox.checked = false;
       });
 
+      // Update select all checkbox when individual checkboxes change
       productCheckboxes.forEach(cb => {
         cb.addEventListener('change', function() {
           const allChecked = Array.from(productCheckboxes).every(cb => cb.checked);
           selectAllCheckbox.checked = allChecked;
         });
+      });
+
+      // Copy checked product IDs to margin form on submit
+      bulkMarginForm.addEventListener('submit', function(e) {
+        // Remove any existing product_ids inputs from this form
+        const existingInputs = bulkMarginForm.querySelectorAll('input[name="product_ids[]"]');
+        existingInputs.forEach(input => input.remove());
+
+        // Add new inputs for checked products
+        productCheckboxes.forEach(cb => {
+          if (cb.checked) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'product_ids[]';
+            input.value = cb.value;
+            bulkMarginForm.appendChild(input);
+          }
+        });
+      });
+
+      // Copy checked product IDs to delete form on submit
+      bulkDeleteForm.addEventListener('submit', function(e) {
+        // Remove any existing product_ids inputs from this form
+        const existingInputs = bulkDeleteForm.querySelectorAll('input[name="product_ids[]"]');
+        existingInputs.forEach(input => input.remove());
+
+        // Add new inputs for checked products
+        let hasChecked = false;
+        productCheckboxes.forEach(cb => {
+          if (cb.checked) {
+            hasChecked = true;
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'product_ids[]';
+            input.value = cb.value;
+            bulkDeleteForm.appendChild(input);
+          }
+        });
+
+        // Prevent submission if no products selected
+        if (!hasChecked) {
+          e.preventDefault();
+          alert('Please select at least one product to delete.');
+          return false;
+        }
       });
     });
   </script>

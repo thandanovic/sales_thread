@@ -8,6 +8,8 @@ class Shop < ApplicationRecord
   has_many :products, dependent: :destroy
   has_many :imported_products, dependent: :destroy
   has_many :import_logs, dependent: :destroy
+  has_many :olx_category_templates, dependent: :destroy
+  has_many :olx_listings, dependent: :destroy
 
   # Validations
   validates :name, presence: true
@@ -15,6 +17,15 @@ class Shop < ApplicationRecord
   # Methods
   def owner
     memberships.find_by(role: 'owner')&.user
+  end
+
+  def formatted_olx_token_expiration
+    return 'Unknown' if olx_token_expires_at.blank?
+
+    date = olx_token_expires_at.is_a?(String) ? Time.parse(olx_token_expires_at) : olx_token_expires_at
+    date.strftime('%B %d, %Y')
+  rescue
+    'Unknown'
   end
 
   def integration_credentials(site)

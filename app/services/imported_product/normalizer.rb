@@ -35,7 +35,7 @@ module ImportedProduct
     private
 
     def normalize_attributes
-      {
+      attrs = {
         shop: @shop,
         source: @imported_product.source,
         title: @raw_data['title'],
@@ -48,6 +48,13 @@ module ImportedProduct
         description: @raw_data['description'],
         specs: extract_specs.to_json
       }
+
+      # Assign OLX category template if import log has one
+      if @imported_product.import_log&.olx_category_template_id.present?
+        attrs[:olx_category_template_id] = @imported_product.import_log.olx_category_template_id
+      end
+
+      attrs
     end
 
     def parse_price(price_string)

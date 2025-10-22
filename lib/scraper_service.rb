@@ -16,6 +16,8 @@
 #   # Import scraped data
 #   ScraperService.import_from_json('scraper/data/products-123456.json', shop)
 #
+require 'open-uri'
+
 class ScraperService
   class ScraperError < StandardError; end
   class LoginError < ScraperError; end
@@ -24,6 +26,20 @@ class ScraperService
   SCRAPER_DIR = Rails.root.join('scraper')
   DATA_DIR = SCRAPER_DIR.join('data')
   ENV_FILE = SCRAPER_DIR.join('.env')
+  LOG_DIR = Rails.root.join('log', 'scraper')
+
+  # Setup dedicated logger for scraper operations
+  def self.logger
+    @logger ||= begin
+      FileUtils.mkdir_p(LOG_DIR)
+      log_file = LOG_DIR.join("scraper-#{Date.today.strftime('%Y%m%d')}.log")
+      logger = Logger.new(log_file, 'daily')
+      logger.formatter = proc do |severity, datetime, progname, msg|
+        "[#{datetime.strftime('%Y-%m-%d %H:%M:%S')}] #{severity}: #{msg}\n"
+      end
+      logger
+    end
+  end
 
   ##
   # Test login to Intercars and save session cookies
@@ -37,7 +53,7 @@ class ScraperService
     ensure_setup!
     create_env_file(username: username, password: password, headless: headless)
 
-    Rails.logger.info "[Scraper] Testing login for #{username}"
+    logger.info "Testing login for #{username}"
 
     result = execute_script('test-login', timeout: 60)
 
@@ -70,7 +86,10 @@ class ScraperService
     # Note: Our updated scrape.js handles login inline, so we don't need session cookies anymore
     # We'll pass credentials directly to the script
 
-    Rails.logger.info "[Scraper] Starting product scrape (max: #{max_products})"
+    logger.info "=" * 80
+    logger.info "Starting product scrape (max: #{max_products})"
+    logger.info "Product URL: #{product_url}" if product_url
+    logger.info "Headless: #{headless}"
 
     # Set environment with all needed variables
     env_vars = { MAX_PRODUCTS: max_products, HEADLESS: headless }
@@ -88,7 +107,18 @@ class ScraperService
 
       if json_file
         products = JSON.parse(File.read(json_file))
-        Rails.logger.info "[Scraper] Scraped #{products.length} products"
+        logger.info "✓ Scraped #{products.length} products successfully"
+        logger.info "JSON file: #{json_file}"
+
+        # Log extraction stats
+        with_images = products.count { |p| p['images']&.any? }
+        with_specs = products.count { |p| p['specs'].present? }
+        with_brand = products.count { |p| p['brand'].present? }
+
+        logger.info "Extraction stats:"
+        logger.info "  - Products with images: #{with_images}/#{products.length}"
+        logger.info "  - Products with specs: #{with_specs}/#{products.length}"
+        logger.info "  - Products with brand: #{with_brand}/#{products.length}"
 
         {
           success: true,
@@ -97,12 +127,14 @@ class ScraperService
           count: products.length
         }
       else
+        logger.error "Scraping completed but no data file found"
         {
           success: false,
           message: 'Scraping completed but no data file found'
         }
       end
     else
+      logger.error "Scraping failed: #{result[:error]}"
       {
         success: false,
         message: result[:error],
@@ -133,6 +165,19 @@ class ScraperService
         error_msg = "Product #{index + 1}: #{e.message}"
         errors << error_msg
         Rails.logger.error "[Scraper Import] #{error_msg}"
+
+        # Create ImportedProduct record for failed import
+        if import_log.present?
+          ImportedProduct.create!(
+            shop: shop,
+            import_log: import_log,
+            source: 'intercars',
+            raw_data: product_data.to_json,
+            status: 'error',
+            error_text: e.message
+          )
+          import_log.increment!(:failed_rows)
+        end
       end
     end
 
@@ -350,6 +395,8 @@ class ScraperService
     # Create or update product using source_id from scraper (Inter Cars kod)
     source_id = product_data['source_id'] || product_data['sku'] || extract_source_id(product_data['source_url'])
 
+    logger.info "Importing product: #{product_data['sku']} - #{product_data['title']}"
+
     product = shop.products.find_or_initialize_by(
       source: 'intercars',
       source_id: source_id
@@ -357,11 +404,12 @@ class ScraperService
 
     # Check if this is an update
     is_update = product.persisted?
+    logger.info "  Action: #{is_update ? 'UPDATE' : 'CREATE'}"
 
     # Default price to 0 if not present
     price = product_data['price'] || 0.0
 
-    product.assign_attributes(
+    attrs = {
       title: product_data['title'],
       sku: product_data['sku'],
       brand: product_data['brand'],
@@ -371,25 +419,54 @@ class ScraperService
       quantity: product_data['quantity'],
       description: product_data['description'],
       specs: product_data['specs']&.to_json,
+      image_urls: product_data['images'],
       refreshed_at: Time.current
-    )
+    }
 
+    # Log what we're importing
+    logger.info "  Brand: #{product_data['brand'] || 'MISSING'}"
+    logger.info "  Price: #{price} #{product_data['currency'] || 'BAM'}"
+    logger.info "  Images: #{product_data['images']&.length || 0}"
+    logger.info "  Description: #{product_data['description'] ? 'YES' : 'NO'}"
+    logger.info "  Specs: #{product_data['specs'] ? 'YES' : 'NO'}"
+
+    # Assign OLX category template if import log has one
+    if import_log&.olx_category_template_id.present?
+      attrs[:olx_category_template_id] = import_log.olx_category_template_id
+    end
+
+    product.assign_attributes(attrs)
     product.save!
 
     # Download and attach images - clear old images first if updating
     if product_data['images'].present?
+      logger.info "  Downloading #{product_data['images'].length} images..."
       product.images.purge if is_update && product.images.attached?
       download_images(product, product_data['images'])
+    else
+      logger.warn "  No images to download!"
     end
 
     # Update import log if provided
     import_log&.increment!(:successful_rows)
 
-    # Log update vs create
+    # Create ImportedProduct record for tracking
+    if import_log.present?
+      ImportedProduct.create!(
+        shop: shop,
+        import_log: import_log,
+        product: product,
+        source: 'intercars',
+        raw_data: product_data.to_json,
+        status: 'imported'
+      )
+    end
+
+    # Log final result
     if is_update
-      Rails.logger.info "[Scraper Import] Updated product #{product.sku} - #{product.title}"
+      logger.info "  ✓ Updated product #{product.sku}"
     else
-      Rails.logger.info "[Scraper Import] Created new product #{product.sku} - #{product.title}"
+      logger.info "  ✓ Created new product #{product.sku}"
     end
 
     product
@@ -401,21 +478,31 @@ class ScraperService
   end
 
   def self.download_images(product, image_urls)
+    success_count = 0
     image_urls.each_with_index do |url, index|
       next if url.blank?
 
       begin
-        io = URI.open(url)
-        filename = "#{product.sku || product.id}_#{index}#{File.extname(url)}"
+        # Convert thumbnail URLs to larger size (t_t100x100v2 -> t_t300x300v2)
+        larger_url = url.gsub('t_t100x100v2', 't_t300x300v2')
+
+        logger.debug "    Downloading: #{larger_url.truncate(80)}"
+
+        io = URI.open(larger_url)
+        filename = "#{product.sku || product.id}_#{index}#{File.extname(larger_url)}"
 
         product.images.attach(
           io: io,
           filename: filename,
           content_type: io.content_type
         )
+
+        success_count += 1
+        logger.debug "    ✓ Image #{index + 1}/#{image_urls.length} downloaded"
       rescue => e
-        Rails.logger.warn "[Scraper] Failed to download image #{url}: #{e.message}"
+        logger.error "    ✗ Failed to download image #{index + 1}: #{e.message}"
       end
     end
+    logger.info "  ✓ Downloaded #{success_count}/#{image_urls.length} images"
   end
 end

@@ -28,8 +28,172 @@
     <%= form.text_field :name, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md", placeholder: "My Shop" %>
   </div>
 
+  <!-- OLX Integration Settings -->
+  <div class="border-t border-gray-200 pt-6">
+    <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">OLX Integration</h3>
+    <p class="text-sm text-gray-500 mb-4">Connect your OLX account to publish products to OLX marketplace.</p>
+
+    <div class="space-y-4">
+      <div>
+        <%= form.label :olx_username, "OLX Username/Email", class: "block text-sm font-medium text-gray-700" %>
+        <%= form.text_field :olx_username, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md", placeholder: "your@email.com", autocomplete: "off" %>
+      </div>
+
+      <div>
+        <%= form.label :olx_password, "OLX Password", class: "block text-sm font-medium text-gray-700" %>
+        <%= form.password_field :olx_password, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md", placeholder: "Enter password", autocomplete: "new-password" %>
+        <p class="mt-1 text-xs text-gray-500">Your password is securely stored and never shown.</p>
+      </div>
+
+      <% if shop.persisted? %>
+        <div>
+          <button type="button" id="test-olx-connection" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Test Connection
+          </button>
+          <div id="connection-status" class="mt-2"></div>
+        </div>
+
+        <% if shop.olx_access_token.present? %>
+          <div class="rounded-md bg-green-50 p-4">
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm font-medium text-green-800">Connected to OLX</p>
+                <p class="mt-1 text-xs text-green-700">
+                  Token expires: <%= shop.formatted_olx_token_expiration %>
+                </p>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+
   <div class="flex justify-end space-x-3">
     <%= link_to "Cancel", shops_path, class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" %>
     <%= form.submit class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" %>
   </div>
+<% end %>
+
+<% if shop.persisted? %>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const testButton = document.getElementById('test-olx-connection');
+  const statusDiv = document.getElementById('connection-status');
+
+  if (testButton) {
+    testButton.addEventListener('click', async function() {
+      // Get current values from form
+      const username = document.querySelector('input[name="shop[olx_username]"]').value;
+      const password = document.querySelector('input[name="shop[olx_password]"]').value;
+
+      if (!username || !password) {
+        statusDiv.innerHTML = `
+          <div class="rounded-md bg-yellow-50 p-4">
+            <p class="text-sm text-yellow-800">Please enter both username and password first.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Save credentials first, then test
+      testButton.disabled = true;
+      testButton.innerHTML = `
+        <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Testing...
+      `;
+      statusDiv.innerHTML = '';
+
+      try {
+        // First save the shop to update credentials
+        const formData = new FormData(testButton.closest('form'));
+        const updateResponse = await fetch(testButton.closest('form').action, {
+          method: 'PATCH',
+          body: formData,
+          headers: {
+            'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content,
+            'Accept': 'text/html'
+          }
+        });
+
+        if (!updateResponse.ok) {
+          throw new Error('Failed to save credentials');
+        }
+
+        // Then test the connection
+        const response = await fetch('<%= test_olx_connection_shop_path(shop) %>', {
+          method: 'POST',
+          headers: {
+            'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          statusDiv.innerHTML = `
+            <div class="rounded-md bg-green-50 p-4">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div class="ml-3">
+                  <p class="text-sm font-medium text-green-800">${data.message}</p>
+                  ${data.user ? `<p class="mt-1 text-xs text-green-700">Logged in as: ${data.user.email || data.user.username}</p>` : ''}
+                </div>
+              </div>
+            </div>
+          `;
+          // Reload page after 2 seconds to show updated connection status
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          statusDiv.innerHTML = `
+            <div class="rounded-md bg-red-50 p-4">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div class="ml-3">
+                  <p class="text-sm font-medium text-red-800">${data.message}</p>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      } catch (error) {
+        statusDiv.innerHTML = `
+          <div class="rounded-md bg-red-50 p-4">
+            <p class="text-sm text-red-800">Error: ${error.message}</p>
+          </div>
+        `;
+      } finally {
+        testButton.disabled = false;
+        testButton.innerHTML = `
+          <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Test Connection
+        `;
+      }
+    });
+  }
+});
+</script>
 <% end %>

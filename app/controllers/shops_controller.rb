@@ -1,7 +1,7 @@
 class ShopsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_shop, only: [:show, :edit, :update, :destroy]
-  before_action :authorize_shop, only: [:edit, :update, :destroy]
+  before_action :set_shop, only: [:show, :edit, :update, :destroy, :test_olx_connection]
+  before_action :authorize_shop, only: [:edit, :update, :destroy, :test_olx_connection]
 
   def index
     @shops = current_user.shops.order(created_at: :desc)
@@ -45,6 +45,35 @@ class ShopsController < ApplicationController
     redirect_to shops_url, notice: 'Shop was successfully deleted.'
   end
 
+  def test_olx_connection
+    begin
+      result = OlxApiService.authenticate(@shop)
+
+      if result[:success]
+        render json: {
+          success: true,
+          message: 'Successfully connected to OLX! Token saved.',
+          user: result[:user]
+        }
+      else
+        render json: {
+          success: false,
+          message: 'Connection failed. Please check your credentials.'
+        }, status: :unprocessable_entity
+      end
+    rescue OlxApiService::AuthenticationError => e
+      render json: {
+        success: false,
+        message: "Authentication failed: #{e.message}"
+      }, status: :unprocessable_entity
+    rescue => e
+      render json: {
+        success: false,
+        message: "Error: #{e.message}"
+      }, status: :unprocessable_entity
+    end
+  end
+
   private
 
   def set_shop
@@ -61,6 +90,6 @@ class ShopsController < ApplicationController
   end
 
   def shop_params
-    params.require(:shop).permit(:name)
+    params.require(:shop).permit(:name, :olx_username, :olx_password)
   end
 end

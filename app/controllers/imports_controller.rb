@@ -16,6 +16,7 @@ class ImportsController < ApplicationController
     @import = @shop.import_logs.new
     @import.source = params[:import_log]&.[](:source) || params[:source]
     @import.status = 'pending'
+    @import.olx_category_template_id = params[:olx_category_template_id] if params[:olx_category_template_id].present?
 
     if @import.source == 'csv' && params[:csv_file].present?
       # Handle CSV upload

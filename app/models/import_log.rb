@@ -1,5 +1,6 @@
 class ImportLog < ApplicationRecord
   belongs_to :shop
+  belongs_to :olx_category_template, optional: true
   has_many :imported_products, dependent: :nullify
 
   # Enums

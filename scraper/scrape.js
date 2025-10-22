@@ -13,6 +13,7 @@
 const { chromium } = require('playwright-extra');
 const stealth = require('puppeteer-extra-plugin-stealth');
 const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 // Add stealth plugin to avoid detection
@@ -22,8 +23,35 @@ const SITE_URL = 'https://ba.e-cat.intercars.eu/bs/';
 const PRODUCT_URL = process.env.PRODUCT_URL;
 const MAX_PRODUCTS = parseInt(process.env.MAX_PRODUCTS) || 10;
 
+// Setup logging to file
+const LOG_DIR = path.join(__dirname, 'logs');
+if (!fs.existsSync(LOG_DIR)) {
+  fs.mkdirSync(LOG_DIR, { recursive: true });
+}
+
+const LOG_FILE = path.join(LOG_DIR, `scrape-${Date.now()}.log`);
+const logStream = fs.createWriteStream(LOG_FILE, { flags: 'a' });
+
+function log(message) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${message}\n`;
+
+  // Write to both console and file
+  console.log(message);
+  logStream.write(logMessage);
+}
+
+function logError(message, error) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ERROR: ${message}\n${error ? error.stack : ''}\n`;
+
+  console.error(message, error);
+  logStream.write(logMessage);
+}
+
 async function scrapeProducts(username, password, productUrl) {
-  console.log('🕷️  Starting Intercars Product Scraper (with Stealth Mode)...\n');
+  log('🕷️  Starting Intercars Product Scraper (with Stealth Mode)...');
+  log(`Log file: ${LOG_FILE}`);
 
   // Use parameters if provided, otherwise fall back to env
   const loginUsername = username || process.env.INTERCARS_USERNAME;
@@ -198,12 +226,12 @@ async function scrapeProducts(username, password, productUrl) {
       const listingPageUrl = page.url();
       console.log(`   📍 Listing page URL: ${listingPageUrl}`);
 
-      // Extract product links from this page
-      const productLinks = await extractProductLinksFromPage(page);
+      // Extract products directly from listing page (no detail page visits)
+      const productCards = await extractProductsFromListingPage(page);
 
-      if (productLinks.length === 0) {
-        console.log('   ⚠️  No products found on this page.');
-        console.log('   Taking screenshot for debugging...');
+      if (productCards.length === 0) {
+        log('   ⚠️  No products found on this page.');
+        log('   Taking screenshot for debugging...');
 
         // Ensure directories exist
         if (!fs.existsSync('screenshots')) fs.mkdirSync('screenshots', { recursive: true });
@@ -214,74 +242,76 @@ async function scrapeProducts(username, password, productUrl) {
         // Try to save HTML for inspection
         const html = await page.content();
         fs.writeFileSync(`data/debug-page-${currentPage}.html`, html);
-        console.log(`   Saved HTML to: data/debug-page-${currentPage}.html`);
+        log(`   Saved HTML to: data/debug-page-${currentPage}.html`);
 
-        console.log('   Stopping pagination.');
+        log('   Stopping pagination.');
         break;
       }
 
-      // Visit each product detail page (respecting MAX_PRODUCTS limit)
+      // Process products on this page (respecting MAX_PRODUCTS limit)
       const remainingSlots = MAX_PRODUCTS - scrapedCount;
-      const linksToVisit = productLinks.slice(0, remainingSlots);
+      const productsToProcess = productCards.slice(0, remainingSlots);
 
-      console.log(`   → Visiting ${linksToVisit.length} product detail pages...`);
+      log(`   → Processing ${productsToProcess.length} products on listing page...`);
 
-      for (let i = 0; i < linksToVisit.length; i++) {
-        const productLink = linksToVisit[i];
-        console.log(`      [${scrapedCount + i + 1}/${MAX_PRODUCTS}] Fetching: ${productLink.title}`);
+      for (let i = 0; i < productsToProcess.length; i++) {
+        const productData = productsToProcess[i];
+        log(`      [${scrapedCount + i + 1}/${MAX_PRODUCTS}] Processing: ${productData.title}`);
 
         try {
-          const productDetails = await extractProductDetails(page, productLink);
-          if (productDetails) {
-            products.push(productDetails);
-            scrapedCount++;
-          }
+          // Extract images by hovering over image icon (stay on listing page)
+          const images = await extractImagesFromProductCard(page, i);
+          productData.images = images;
+
+          log(`       ✓ Extracted ${images.length} images without leaving listing page`);
+
+          products.push(productData);
+          scrapedCount++;
         } catch (error) {
-          console.log(`      ⚠️  Failed to extract: ${error.message}`);
+          logError(`Failed to extract images for product ${i}`, error);
+          // Still add product without images
+          productData.images = [];
+          products.push(productData);
+          scrapedCount++;
         }
 
-        // Respectful throttling between product pages
-        if (i < linksToVisit.length - 1) {
-          await page.waitForTimeout(1000);
+        // Small delay between products
+        if (i < productsToProcess.length - 1) {
+          await page.waitForTimeout(500);
         }
       }
 
-      console.log(`   ✓ Scraped ${linksToVisit.length} products from this page (Total: ${scrapedCount}/${MAX_PRODUCTS})`);
+      log(`   ✓ Scraped ${productsToProcess.length} products from this page (Total: ${scrapedCount}/${MAX_PRODUCTS})`);
 
       // If we've reached our limit, stop
       if (scrapedCount >= MAX_PRODUCTS) {
-        console.log('   ✓ Reached maximum product limit');
+        log('   ✓ Reached maximum product limit');
         break;
       }
-
-      // Navigate back to the listing page before clicking next
-      console.log(`   ← Returning to listing page...`);
-      await page.goto(listingPageUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await page.waitForTimeout(2000);
 
       // Check if there's a next page
       const nextButton = page.locator('[data-testid="pagination__next"]');
       const hasNextPage = await nextButton.count() > 0;
 
       if (!hasNextPage) {
-        console.log('   ⚠️  No next button found - last page reached');
+        log('   ⚠️  No next button found - last page reached');
         break;
       }
 
       // If this page had fewer products than expected, might be last page
-      if (productLinks.length < 8) {
-        console.log('   ⚠️  Fewer products than expected on this page.');
+      if (productCards.length < 8) {
+        log('   ⚠️  Fewer products than expected on this page.');
         // Still try to go to next page in case there are more
       }
 
       // Click next button to go to next page
       try {
         await nextButton.click();
-        console.log('   ✓ Clicked next page button');
+        log('   ✓ Clicked next page button');
         await page.waitForTimeout(2000);
         currentPage++;
       } catch (e) {
-        console.log('   ⚠️  Failed to navigate to next page:', e.message);
+        log('   ⚠️  Failed to navigate to next page: ' + e.message);
         break;
       }
     }
@@ -311,24 +341,31 @@ async function scrapeProducts(username, password, productUrl) {
     return products;
 
   } catch (error) {
-    console.error('\n❌ Error during scraping:', error.message);
-    console.error(error.stack);
+    logError('Error during scraping', error);
     if (!fs.existsSync('screenshots')) fs.mkdirSync('screenshots', { recursive: true });
     await page.screenshot({ path: 'screenshots/error-scrape.png' }).catch(() => {});
     throw error;
   } finally {
     await browser.close();
-    console.log('\n✅ Scraping complete!\n');
+    log('\n✅ Scraping complete!');
+    log(`Full log saved to: ${LOG_FILE}`);
+
+    // Close log stream
+    logStream.end();
   }
 }
 
-async function extractProductLinksFromPage(page) {
-  // Extract product links AND prices from the listing page
-  const links = await page.evaluate(() => {
+/**
+ * Extract all product data from listing page (without visiting detail pages)
+ */
+async function extractProductsFromListingPage(page) {
+  log('   Extracting products from listing page...');
+
+  const products = await page.evaluate(() => {
     const productLinks = document.querySelectorAll('[data-testid="productIndexLink"]');
     const priceElements = document.querySelectorAll('[data-testid="wholesalePrice-new"], [data-test="wholesalePrice-new"]');
 
-    console.log(`Found ${productLinks.length} product links and ${priceElements.length} price elements`);
+    console.log(`[EXTRACTION] Found ${productLinks.length} product links and ${priceElements.length} price elements`);
 
     const extracted = [];
     productLinks.forEach((link, index) => {
@@ -338,240 +375,327 @@ async function extractProductLinksFromPage(page) {
 
       // Skip pagination links - they end with /c/[category]/p/[number]
       if (url.match(/\/p\/\d+$/)) {
-        console.log(`Skipping pagination link: ${url}`);
+        console.log(`[EXTRACTION] Skipping pagination link: ${url}`);
         return;
       }
 
       // Skip if no real title (pagination links have empty or numeric titles)
       if (!title || title.length < 3) {
-        console.log(`Skipping link with no/short title: "${title}" - ${url}`);
+        console.log(`[EXTRACTION] Skipping link with no/short title: "${title}"`);
         return;
       }
+
+      console.log(`[EXTRACTION] Processing product ${index}: ${title} (${sku})`);
 
       let price = null;
       let currency = 'BAM';
       let branchAvailability = null;
       let quantity = null;
 
-      // Assume prices and links are in same order (most common pattern in listing pages)
+      // Extract price from price element
       const priceEl = priceElements[index];
       if (priceEl) {
-        console.log(`Matching price element ${index} for SKU ${sku}`);
-
-        // Try data attribute first
         const dataPrice = priceEl.getAttribute('data-clk-listing-item-wholesale-price');
         if (dataPrice) {
           price = parseFloat(dataPrice);
-          console.log(`  Price from data attribute: ${price}`);
         } else {
-          // Fall back to parsing text content
           const priceText = priceEl.textContent.trim();
-          console.log(`  Price text: "${priceText}"`);
           const priceMatch = priceText.match(/([\d\s,.]+)\s*(BAM|EUR|KM)?/);
           if (priceMatch) {
             const cleanPrice = priceMatch[1].replace(/\s/g, '').replace(',', '.');
             price = parseFloat(cleanPrice);
             currency = priceMatch[2] || 'BAM';
-            console.log(`  Price from text: ${price} ${currency}`);
           }
         }
-      } else {
-        console.log(`No price element at index ${index} for SKU ${sku}`);
       }
 
       // Extract branch availability and quantity
-      // Find parent container of the product link
       let parent = link;
       for (let i = 0; i < 10; i++) {
         parent = parent.parentElement;
         if (!parent) break;
 
-        // Look for stock name (branch)
         const stockNameEl = parent.querySelector('[data-testid="stockName"], [data-test="stockName"]');
         if (stockNameEl) {
           branchAvailability = stockNameEl.getAttribute('data-clk-listing-item-availability-branch') || stockNameEl.textContent.trim();
-          console.log(`  Found branch: ${branchAvailability}`);
         }
 
-        // Look for stock quantity
         const stockQuantityEl = parent.querySelector('[data-testid="stockQuantity-new"], [data-test="stockQuantity-new"]');
         if (stockQuantityEl) {
           quantity = stockQuantityEl.getAttribute('data-clk-listing-item-availability-amount') || stockQuantityEl.textContent.trim();
-          console.log(`  Found quantity: ${quantity}`);
         }
 
-        // If we found both, no need to keep looking
-        if (branchAvailability && quantity) {
+        if (branchAvailability && quantity) break;
+      }
+
+      // Try to extract brand from title (format: "SIZE BRAND CODE")
+      let brand = null;
+      const titleParts = title.split(' ');
+      if (titleParts.length >= 2) {
+        // Second part is usually the brand (e.g., "175/65R14 ZOHA 82T W462H" -> ZOHA)
+        brand = titleParts[1];
+      }
+
+      // Extract specs/description from productAttributes section
+      let description = null;
+      let specs = {};
+
+      // Try to find productAttributes container for this product
+      // Navigate up from the link to find the product card that contains attributes
+      let productCard = link;
+      for (let i = 0; i < 15; i++) {
+        productCard = productCard.parentElement;
+        if (!productCard) break;
+
+        const attrsContainer = productCard.querySelector('[data-testid="productAttributes"]');
+        if (attrsContainer) {
+          console.log(`[EXTRACTION] Found productAttributes for product ${index}`);
+
+          // Get the full text content and split by | to get attribute pairs
+          const fullText = attrsContainer.textContent.trim();
+          console.log(`[EXTRACTION] Attrs text length: ${fullText.length}`);
+
+          if (fullText.length > 0) {
+            // Split by | separator
+            const parts = fullText.split('|').map(p => p.trim()).filter(p => p.length > 0);
+            console.log(`[EXTRACTION] Found ${parts.length} attribute parts`);
+
+            // Process each part (format: "Label: Value")
+            const descParts = [];
+            parts.forEach(part => {
+              const colonIdx = part.indexOf(':');
+              if (colonIdx > 0) {
+                const label = part.substring(0, colonIdx).trim();
+                const value = part.substring(colonIdx + 1).trim();
+
+                if (label && value) {
+                  descParts.push(`${label}: ${value}`);
+                  specs[label] = value;
+                }
+              }
+            });
+
+            description = descParts.join(', ');
+            console.log(`[EXTRACTION] Extracted ${Object.keys(specs).length} spec attributes`);
+          } else {
+            console.log(`[EXTRACTION] ⚠ productAttributes container is empty`);
+          }
           break;
         }
       }
 
+      if (!description) {
+        console.log(`[EXTRACTION] ⚠ No productAttributes found for product ${index}`);
+      }
+
+      console.log(`[EXTRACTION] Product ${index} fields:`);
+      console.log(`[EXTRACTION]   - Title: ${title}`);
+      console.log(`[EXTRACTION]   - SKU: ${sku}`);
+      console.log(`[EXTRACTION]   - Brand: ${brand || 'NOT FOUND'}`);
+      console.log(`[EXTRACTION]   - Price: ${price || 'NOT FOUND'} ${currency}`);
+      console.log(`[EXTRACTION]   - Branch: ${branchAvailability || 'NOT FOUND'}`);
+      console.log(`[EXTRACTION]   - Quantity: ${quantity || 'NOT FOUND'}`);
+      console.log(`[EXTRACTION]   - Description: ${description ? 'YES (' + description.substring(0, 50) + '...)' : 'NOT FOUND'}`);
+      console.log(`[EXTRACTION]   - Specs: ${Object.keys(specs).length} attributes`);
+
       if (url && (title || sku)) {
-        extracted.push({ title, url, sku, price, currency, branchAvailability, quantity });
+        const productData = {
+          source: 'intercars',
+          scraped_at: new Date().toISOString(),
+          title,
+          url,
+          sku,
+          source_id: sku,
+          source_url: url,
+          price: price || 0.0,
+          currency,
+          branch_availability: branchAvailability || null,
+          quantity: quantity || null,
+          brand: brand || null,
+          // Images will be filled by clicking
+          images: [],
+          // Description and specs extracted from productAttributes
+          description: description,
+          specs: Object.keys(specs).length > 0 ? specs : null
+        };
+        extracted.push(productData);
+        console.log(`[EXTRACTION] ✓ Added product ${index}`);
+      } else {
+        console.log(`[EXTRACTION] ⚠ Skipped product ${index} - missing URL or title/SKU`);
       }
     });
 
+    console.log(`[EXTRACTION] Total extracted: ${extracted.length} products`);
     return extracted;
   });
 
-  return links;
+  log(`   ✓ Found ${products.length} products on listing page`);
+  return products;
 }
 
-async function extractProductDetails(page, productLink) {
-  // Visit product detail page and extract full information
-  await page.goto(productLink.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForTimeout(2000);
+/**
+ * Extract images by hovering over product image icon
+ * Stays on listing page - no navigation needed
+ */
+async function extractImagesFromProductCard(page, productIndex) {
+  try {
+    log(`       [IMG] ========================================`);
+    log(`       [IMG] Extracting images for product ${productIndex}...`);
 
-  // Extract product details from the detail page
-  const details = await page.evaluate(() => {
-    const product = {};
+    // Wait a bit for any previous modal to close
+    log(`       [IMG] Waiting for any previous modal to close...`);
+    await page.waitForTimeout(1000);
 
-    // Try to find price - use data attribute first, then text content
-    console.log('Looking for price element...');
+    // Find all product image containers
+    log(`       [IMG] Looking for .product-image containers...`);
+    const imageContainers = await page.locator('.product-image').all();
+    log(`       [IMG] Found ${imageContainers.length} image containers on page`);
 
-    const priceEl = document.querySelector('[data-testid="wholesalePrice-new"], [data-test="wholesalePrice-new"]');
+    if (productIndex >= imageContainers.length) {
+      logError(`[IMG] ⚠ Product index ${productIndex} out of range (found ${imageContainers.length} containers)`, null);
+      return [];
+    }
 
-    if (priceEl) {
-      console.log('Price element found!');
+    const container = imageContainers[productIndex];
+    log(`       [IMG] Using container at index ${productIndex}`);
 
-      // Try to get price from data attribute first (most reliable)
-      const dataPrice = priceEl.getAttribute('data-clk-listing-item-wholesale-price');
-      if (dataPrice) {
-        product.price = parseFloat(dataPrice);
-        product.currency = 'BAM'; // Default currency
-        console.log(`Found price from data attribute: ${product.price}`);
-      } else {
-        // Fall back to parsing text content
-        const priceText = priceEl.textContent.trim();
-        console.log(`Price element text: "${priceText}"`);
+    // Find the magnifying glass icon trigger
+    log(`       [IMG] Looking for gallery trigger (magnifying glass icon)...`);
+    const galleryTrigger = container.locator('svg.js-gallery-tooltip-modal-trigger-H156TY');
+    const triggerCount = await galleryTrigger.count();
+    log(`       [IMG] Gallery trigger count: ${triggerCount}`);
 
-        // Match price in format "84,31 BAM" or "84.31 EUR"
-        const priceMatch = priceText.match(/([\d\s,.]+)\s*(BAM|EUR|KM)?/);
-        if (priceMatch) {
-          const cleanPrice = priceMatch[1].replace(/\s/g, '').replace(',', '.');
-          product.price = parseFloat(cleanPrice);
-          product.currency = priceMatch[2] || (priceText.includes('€') ? 'EUR' : 'BAM');
-          console.log(`Found price from text: ${product.price} ${product.currency}`);
-        } else {
-          console.log('No price match found in text');
-        }
+    // Try to click on the product image to open modal (works for all products)
+    log(`       [IMG] Looking for product image to click...`);
+
+    try {
+      const productImage = container.locator('img').first();
+      const productImageCount = await productImage.count();
+      log(`       [IMG] Found ${productImageCount} img elements in container`);
+
+      if (productImageCount === 0) {
+        log(`       [IMG] ⚠ No images found in container, skipping`);
+        return [];
       }
-    } else {
-      console.log('Price element not found - trying alternative selectors...');
 
-      // Try broader selectors as fallback
-      const altSelectors = [
-        '[class*="price"]',
-        '[data-testid*="price"]',
-        '.product-price',
-        '[class*="Price"]'
-      ];
+      log(`       [IMG] Scrolling image into view...`);
+      await productImage.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(500);
 
-      for (const selector of altSelectors) {
-        const altPriceEl = document.querySelector(selector);
-        if (altPriceEl) {
-          const priceText = altPriceEl.textContent.trim();
-          const priceMatch = priceText.match(/([\d\s,.]+)\s*(BAM|EUR|KM)?/);
-          if (priceMatch) {
-            const cleanPrice = priceMatch[1].replace(/\s/g, '').replace(',', '.');
-            product.price = parseFloat(cleanPrice);
-            product.currency = priceMatch[2] || 'BAM';
-            console.log(`Found price with fallback selector ${selector}: ${product.price} ${product.currency}`);
-            break;
+      log(`       [IMG] CLICKING on product image to open modal...`);
+      await productImage.click();
+
+      log(`       [IMG] Waiting 4 seconds for modal to appear...`);
+      await page.waitForTimeout(4000);
+
+      log(`       [IMG] ✓ Modal should be visible now`);
+    } catch (err) {
+      logError(`[IMG] Error clicking on product image`, err);
+      return [];
+    }
+
+    // Get images AFTER clicking - extract ONLY from modal portal
+    log(`       [IMG] Extracting images from modal portal...`);
+    const modalImages = await page.evaluate(() => {
+      const images = [];
+
+      // Look for the modal portal (this is where clicked product images appear)
+      const modalPortal = document.querySelector('.ReactModalPortal');
+      if (!modalPortal) {
+        console.log('[IMG MODAL] ⚠ No modal portal found!');
+        return [];
+      }
+
+      console.log('[IMG MODAL] ✓ Modal portal found!');
+
+      // Get all swiper slides in the modal (each slide = one image)
+      const slides = modalPortal.querySelectorAll('.swiper-slide');
+      console.log(`[IMG MODAL] Found ${slides.length} slides in carousel`);
+
+      // Extract image from each slide
+      slides.forEach((slide, idx) => {
+        const img = slide.querySelector('img');
+        if (img) {
+          const src = img.src || img.getAttribute('data-src');
+          if (src && src.includes('ic-files-res.cloudinary.com')) {
+            // Convert to 300x300 format for consistency
+            const url300 = src.replace(/t_t\d+x\d+v\d+/, 't_t300x300v2');
+            if (!images.includes(url300)) {
+              images.push(url300);
+              const filename = url300.substring(url300.lastIndexOf('/') + 1);
+              console.log(`[IMG MODAL] Slide ${idx + 1}: ${filename}`);
+            }
+          } else {
+            console.log(`[IMG MODAL] Slide ${idx + 1}: No valid image src`);
           }
+        } else {
+          console.log(`[IMG MODAL] Slide ${idx + 1}: No img element found`);
         }
-      }
-    }
+      });
 
-    // Extract images
-    const images = [];
-    document.querySelectorAll('img').forEach(img => {
-      let src = img.src || img.getAttribute('data-src');
-      if (src && src.includes('ic-files-res.cloudinary.com')) {
-        // Get high-res version
-        src = src.replace(/w_\d+/, 'w_800').replace(/h_\d+/, 'h_800');
-        if (!images.includes(src)) {
-          images.push(src);
-        }
-      }
-    });
-    product.images = images;
-
-    // Extract specifications/attributes
-    const specs = {};
-    const specRows = document.querySelectorAll('[class*="spec"], [class*="attribute"], tr');
-
-    specRows.forEach(row => {
-      const label = row.querySelector('th, td:first-child, [class*="label"]');
-      const value = row.querySelector('td:last-child, [class*="value"]');
-
-      if (label && value) {
-        const labelText = label.textContent.trim();
-        const valueText = value.textContent.trim();
-        if (labelText && valueText) {
-          specs[labelText] = valueText;
-        }
-      }
+      console.log(`[IMG MODAL] Total images extracted from modal: ${images.length}`);
+      return images;
     });
 
-    if (Object.keys(specs).length > 0) {
-      product.specs = specs;
+    log(`       [IMG] ========================================`);
+    log(`       [IMG] RESULT: Extracted ${modalImages.length} product images from modal`);
+    modalImages.forEach((img, idx) => {
+      const filename = img.substring(img.lastIndexOf('/') + 1);
+      log(`       [IMG]   ${idx + 1}. ${filename}`);
+    });
+    log(`       [IMG] ========================================`);
 
-      // Build description from specs
-      const descParts = [];
-      for (const [key, value] of Object.entries(specs)) {
-        descParts.push(`${key}: ${value}`);
-      }
-      product.description = descParts.join('\n');
+    // Close modal before moving to next product
+    try {
+      log(`       [IMG] Attempting to close modal...`);
 
-      // Extract brand from specs (look for "Brend:" or "Brand:")
-      for (const [key, value] of Object.entries(specs)) {
-        if (key.toLowerCase().includes('brend') || key.toLowerCase().includes('brand')) {
-          product.brand = value;
-          console.log(`Found brand in specs: ${value}`);
-          break;
+      // Try pressing ESC key multiple times to ensure modal closes
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1000);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+
+      // Check if modal is gone
+      const modalStillExists = await page.locator('.react-transform-component').count();
+      if (modalStillExists > 0) {
+        log(`       [IMG] ⚠ Modal still exists after ESC, trying close button...`);
+
+        // Try clicking close button
+        const closeButton = page.locator('button[aria-label*="close"], button[aria-label*="Close"], button[data-testid*="close"], .close-button, button.close').first();
+        const closeButtonCount = await closeButton.count();
+        if (closeButtonCount > 0) {
+          log(`       [IMG] Found close button, clicking...`);
+          await closeButton.click();
+          await page.waitForTimeout(1000);
+        } else {
+          // Click outside modal as last resort
+          log(`       [IMG] No close button, clicking outside modal...`);
+          await page.mouse.click(10, 10);
+          await page.waitForTimeout(1000);
         }
       }
-    }
 
-    // If brand not found in specs, try DOM selectors
-    if (!product.brand) {
-      const brandSelectors = [
-        '[class*="brand"]',
-        '[data-testid*="brand"]',
-        '.manufacturer'
-      ];
-
-      for (const selector of brandSelectors) {
-        const brandEl = document.querySelector(selector);
-        if (brandEl) {
-          product.brand = brandEl.textContent.trim();
-          console.log(`Found brand in DOM: ${product.brand}`);
-          break;
-        }
+      // Final check
+      const modalFinalCheck = await page.locator('.react-transform-component').count();
+      if (modalFinalCheck > 0) {
+        log(`       [IMG] ⚠ Modal still visible after close attempts!`);
+      } else {
+        log(`       [IMG] ✓ Modal closed successfully`);
       }
+
+      // Extra wait to ensure DOM is stable before next product
+      await page.waitForTimeout(1000);
+    } catch (err) {
+      logError(`[IMG] Error closing modal`, err);
     }
 
-    return product;
-  });
+    return modalImages;
 
-  // Combine with link data (use price from listing page as it's more reliable)
-  return {
-    source: 'intercars',
-    scraped_at: new Date().toISOString(),
-    title: productLink.title,
-    sku: productLink.sku,
-    source_id: productLink.sku,
-    source_url: productLink.url,
-    price: productLink.price || details.price || 0.0,
-    currency: productLink.currency || details.currency || 'BAM',
-    branch_availability: productLink.branchAvailability || null,
-    quantity: productLink.quantity || null,
-    images: details.images || [],
-    description: details.description || null,
-    specs: details.specs ? JSON.stringify(details.specs) : null,
-    brand: details.brand || null
-  };
+  } catch (error) {
+    logError(`[IMG] FATAL ERROR extracting images for product ${productIndex}`, error);
+    logError(`[IMG] Stack trace:`, error);
+    return [];
+  }
 }
 
 // Module export for use in Rails ScraperService

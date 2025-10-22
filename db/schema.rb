@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_10_20_200055) do
+ActiveRecord::Schema[8.0].define(version: 2025_10_21_093152) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -53,6 +53,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_20_200055) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.text "error_messages"
+    t.integer "olx_category_template_id"
+    t.index ["olx_category_template_id"], name: "index_import_logs_on_olx_category_template_id"
     t.index ["shop_id"], name: "index_import_logs_on_shop_id"
   end
 
@@ -81,6 +83,85 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_20_200055) do
     t.index ["user_id"], name: "index_memberships_on_user_id"
   end
 
+  create_table "olx_categories", force: :cascade do |t|
+    t.integer "external_id"
+    t.string "name"
+    t.string "slug"
+    t.integer "parent_id"
+    t.boolean "has_shipping"
+    t.boolean "has_brand"
+    t.json "metadata"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["external_id"], name: "index_olx_categories_on_external_id", unique: true
+    t.index ["parent_id"], name: "index_olx_categories_on_parent_id"
+    t.index ["slug"], name: "index_olx_categories_on_slug"
+  end
+
+  create_table "olx_category_attributes", force: :cascade do |t|
+    t.integer "olx_category_id", null: false
+    t.string "name"
+    t.string "attribute_type"
+    t.string "input_type"
+    t.boolean "required"
+    t.json "options"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.integer "external_id"
+    t.index ["name"], name: "index_olx_category_attributes_on_name"
+    t.index ["olx_category_id"], name: "index_olx_category_attributes_on_olx_category_id"
+  end
+
+  create_table "olx_category_templates", force: :cascade do |t|
+    t.integer "shop_id", null: false
+    t.string "name"
+    t.integer "olx_category_id", null: false
+    t.integer "olx_location_id", null: false
+    t.string "default_listing_type"
+    t.string "default_state"
+    t.json "attribute_mappings"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.json "description_filter"
+    t.string "title_template"
+    t.index ["name"], name: "index_olx_category_templates_on_name"
+    t.index ["olx_category_id"], name: "index_olx_category_templates_on_olx_category_id"
+    t.index ["olx_location_id"], name: "index_olx_category_templates_on_olx_location_id"
+    t.index ["shop_id"], name: "index_olx_category_templates_on_shop_id"
+  end
+
+  create_table "olx_listings", force: :cascade do |t|
+    t.integer "product_id", null: false
+    t.integer "shop_id", null: false
+    t.string "external_listing_id"
+    t.string "status"
+    t.datetime "published_at"
+    t.json "metadata"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["external_listing_id"], name: "index_olx_listings_on_external_listing_id", unique: true
+    t.index ["product_id"], name: "index_olx_listings_on_product_id"
+    t.index ["shop_id"], name: "index_olx_listings_on_shop_id"
+    t.index ["status"], name: "index_olx_listings_on_status"
+  end
+
+  create_table "olx_locations", force: :cascade do |t|
+    t.integer "external_id"
+    t.string "name"
+    t.integer "country_id"
+    t.integer "state_id"
+    t.integer "canton_id"
+    t.decimal "lat"
+    t.decimal "lon"
+    t.string "zip_code"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["canton_id"], name: "index_olx_locations_on_canton_id"
+    t.index ["country_id"], name: "index_olx_locations_on_country_id"
+    t.index ["external_id"], name: "index_olx_locations_on_external_id", unique: true
+    t.index ["state_id"], name: "index_olx_locations_on_state_id"
+  end
+
   create_table "products", force: :cascade do |t|
     t.integer "shop_id", null: false
     t.string "source"
@@ -103,6 +184,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_20_200055) do
     t.string "branch_availability"
     t.string "quantity"
     t.datetime "refreshed_at"
+    t.integer "olx_category_template_id"
+    t.json "image_urls"
+    t.string "olx_title"
+    t.text "olx_description"
+    t.index ["olx_category_template_id"], name: "index_products_on_olx_category_template_id"
     t.index ["shop_id"], name: "index_products_on_shop_id"
   end
 
@@ -111,6 +197,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_20_200055) do
     t.text "settings"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "olx_username"
+    t.string "olx_password"
+    t.text "olx_access_token"
+    t.datetime "olx_token_expires_at"
   end
 
   create_table "users", force: :cascade do |t|
@@ -129,11 +219,19 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_20_200055) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "import_logs", "olx_category_templates"
   add_foreign_key "import_logs", "shops"
   add_foreign_key "imported_products", "import_logs"
   add_foreign_key "imported_products", "products"
   add_foreign_key "imported_products", "shops"
   add_foreign_key "memberships", "shops"
   add_foreign_key "memberships", "users"
+  add_foreign_key "olx_category_attributes", "olx_categories"
+  add_foreign_key "olx_category_templates", "olx_categories"
+  add_foreign_key "olx_category_templates", "olx_locations"
+  add_foreign_key "olx_category_templates", "shops"
+  add_foreign_key "olx_listings", "products"
+  add_foreign_key "olx_listings", "shops"
+  add_foreign_key "products", "olx_category_templates"
   add_foreign_key "products", "shops"
 end

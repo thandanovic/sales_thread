@@ -29,6 +29,19 @@
 
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">
+            OLX Category Template (Optional)
+          </label>
+          <%= select_tag :olx_category_template_id,
+              options_from_collection_for_select(@shop.olx_category_templates, :id, :display_name),
+              {
+                prompt: "Select a template to auto-configure OLX settings",
+                class: "block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+              } %>
+          <p class="mt-1 text-xs text-gray-500">If selected, imported products will be automatically assigned this template for OLX publishing</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
             CSV File
           </label>
           <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-indigo-400 transition-colors">
@@ -66,6 +79,19 @@
 
       <%= form_with model: @import, url: shop_imports_path(@shop), method: :post, class: "space-y-6" do |f| %>
         <%= f.hidden_field :source, value: 'intercars' %>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            OLX Category Template (Optional)
+          </label>
+          <%= select_tag :olx_category_template_id,
+              options_from_collection_for_select(@shop.olx_category_templates, :id, :display_name),
+              {
+                prompt: "Select a template to auto-configure OLX settings",
+                class: "block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+              } %>
+          <p class="mt-1 text-xs text-gray-500">If selected, imported products will be automatically assigned this template for OLX publishing</p>
+        </div>
 
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <div>

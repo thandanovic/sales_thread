@@ -1,0 +1,279 @@
+<%= form_with(model: [@shop, template], id: "template-form", class: "space-y-8") do |form| %>
+  <% if template.errors.any? %>
+    <div class="rounded-md bg-red-50 p-4">
+      <h3 class="text-sm font-medium text-red-800">
+        <%= pluralize(template.errors.count, "error") %> prohibited this template from being saved:
+      </h3>
+      <ul class="mt-2 text-sm text-red-700 list-disc pl-5">
+        <% template.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <!-- Basic Information -->
+  <div class="bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+      <h3 class="text-lg font-medium leading-6 text-gray-900 mb-6">Basic Information</h3>
+
+      <div class="grid grid-cols-1 gap-6">
+        <div>
+          <%= form.label :name, class: "block text-sm font-medium text-gray-700" %>
+          <%= form.text_field :name, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md", placeholder: "e.g., Tyres, Auto Parts, Electronics" %>
+          <p class="mt-1 text-sm text-gray-500">A descriptive name for this template</p>
+        </div>
+
+        <div>
+          <%= form.label :title_template, "OLX Title Template", class: "block text-sm font-medium text-gray-700" %>
+          <%= form.text_field :title_template, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md", placeholder: "e.g., {brand} {title} - Zimske Gume" %>
+          <p class="mt-1 text-sm text-gray-500">
+            Template for OLX listing titles. Use placeholders: {brand}, {title}, {sku}, {category}, {price}
+          </p>
+          <p class="mt-1 text-xs text-gray-400">
+            Example: "{brand} {title} - Zimske Gume" → "CONTINENTAL 225/55R19 ZOCO 99V TS870P - Zimske Gume"
+          </p>
+        </div>
+
+        <div>
+          <%= form.label :olx_category_id, "OLX Category", class: "block text-sm font-medium text-gray-700" %>
+          <%= form.select :olx_category_id,
+              options_from_collection_for_select(@categories, :id, :full_path, template.olx_category_id),
+              { prompt: "Select a category" },
+              { class: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md", id: "category-select" } %>
+          <p class="mt-1 text-sm text-gray-500">Select the OLX category for products using this template</p>
+        </div>
+
+        <div>
+          <%= form.label :olx_location_id, "OLX Location", class: "block text-sm font-medium text-gray-700" %>
+          <%= form.select :olx_location_id,
+              options_from_collection_for_select(@locations, :id, :name, template.olx_location_id),
+              { prompt: "Select a location" },
+              { class: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" } %>
+          <p class="mt-1 text-sm text-gray-500">Default location for listings</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <%= form.label :default_listing_type, "Listing Type", class: "block text-sm font-medium text-gray-700" %>
+            <%= form.select :default_listing_type,
+                [["Sell", "sell"], ["Buy", "buy"], ["Rent", "rent"]],
+                { prompt: "Select type" },
+                { class: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" } %>
+          </div>
+
+          <div>
+            <%= form.label :default_state, "Item State", class: "block text-sm font-medium text-gray-700" %>
+            <%= form.select :default_state,
+                [["New", "new"], ["Used", "used"]],
+                { prompt: "Select state" },
+                { class: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attribute Mappings -->
+  <div class="bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h3 class="text-lg font-medium leading-6 text-gray-900">Attribute Mappings</h3>
+          <p class="mt-1 text-sm text-gray-500">Map category-specific attributes to product fields or fixed values</p>
+        </div>
+        <button type="button" id="load-attributes-btn" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+          Load Attributes
+        </button>
+      </div>
+
+      <div id="attributes-container">
+        <div class="text-center py-8 text-gray-500">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <p class="mt-2">Select a category and click "Load Attributes" to configure mappings</p>
+        </div>
+      </div>
+
+      <!-- Mapping Examples -->
+      <div class="mt-6 rounded-md bg-blue-50 p-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div class="ml-3 flex-1">
+            <h3 class="text-sm font-medium text-blue-800">Mapping Examples</h3>
+            <div class="mt-2 text-sm text-blue-700">
+              <ul class="list-disc pl-5 space-y-1">
+                <li><strong>product.field_name</strong> - Maps to a product attribute (e.g., product.brand, product.sku)</li>
+                <li><strong>fixed:Value</strong> - Sets a fixed value (e.g., fixed:New, fixed:Original)</li>
+                <li><strong>extract:keyword</strong> - Extracts from product description (e.g., extract:width, extract:season)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Description Filter -->
+  <div class="bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+      <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Description Filter</h3>
+      <p class="text-sm text-gray-500 mb-4">Select which fields from the product description should be included in the OLX listing. Only selected fields will be visible on OLX.</p>
+
+      <div class="space-y-2">
+        <% description_fields = [
+          ['Namjena', 'namjena'],
+          ['Širina', 'sirina'],
+          ['Profil', 'profil'],
+          ['Promjer', 'promjer'],
+          ['Sezona', 'sezona'],
+          ['Klasa', 'klasa'],
+          ['Brend', 'brend'],
+          ['Profil gume', 'profil_gume'],
+          ['Index nosivosti', 'index_nosivosti'],
+          ['Indeks brzine', 'indeks_brzine'],
+          ['Indeks potrošnje', 'indeks_potrosnje'],
+          ['Indeks prianjanja na mokroj podlozi', 'indeks_prianjanja'],
+          ['Klasa razine buke', 'klasa_buke'],
+          ['Razine buke', 'razine_buke'],
+          ['Klasa guma', 'klasa_guma'],
+          ['Prianjanje na snijegu', 'prianjanje_snijeg'],
+          ['Prianjanje na ledu', 'prianjanje_led'],
+          ['Tip (konstrukcija)', 'tip_konstrukcija'],
+          ['Zr', 'zracnica'],
+          ['Zaštitni naplatak', 'zastitni_naplatak'],
+          ['Tip zaštitnog naplatka', 'tip_zastitnog_naplatka'],
+          ['Primjena na osovinu', 'primjena_osovina'],
+          ['Stari DOT', 'stari_dot'],
+          ['Oznaka M+S', 'oznaka_ms'],
+          ['Vrsta gume', 'vrsta_gume'],
+          ['Šifra proizvođača', 'sifra_proizvodaca'],
+          ['EAN bar-kod', 'ean'],
+          ['Veličina', 'velicina'],
+          ['Težina', 'tezina'],
+          ['SKU', 'sku'],
+          ['Brand', 'brand']
+        ] %>
+
+        <% description_fields.each do |label, value| %>
+          <div class="flex items-center">
+            <%= check_box_tag "olx_category_template[description_filter][]", value,
+                template.description_filter&.include?(value),
+                id: "description_filter_#{value}",
+                class: "h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" %>
+            <%= label_tag "description_filter_#{value}", label, class: "ml-2 text-sm text-gray-700" %>
+          </div>
+        <% end %>
+
+        <%= hidden_field_tag "olx_category_template[description_filter][]", "", id: "hidden_description_filter" %>
+      </div>
+
+      <p class="mt-4 text-xs text-gray-500">
+        <strong>Tip:</strong> Select only the fields you want customers to see on OLX. Unselected fields will not be included in the listing description.
+      </p>
+    </div>
+  </div>
+
+  <div class="flex justify-end space-x-3">
+    <%= link_to "Cancel", shop_olx_category_templates_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
+    <%= form.submit class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700" %>
+  </div>
+<% end %>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const categorySelect = document.getElementById('category-select');
+  const loadAttributesBtn = document.getElementById('load-attributes-btn');
+  const attributesContainer = document.getElementById('attributes-container');
+
+  // Pre-populate existing mappings if editing
+  <% if template.persisted? && template.attribute_mappings.present? %>
+    loadAttributesBtn.click();
+  <% end %>
+
+  loadAttributesBtn.addEventListener('click', function() {
+    const categoryId = categorySelect.value;
+
+    if (!categoryId) {
+      alert('Please select a category first');
+      return;
+    }
+
+    // Show loading state
+    attributesContainer.innerHTML = `
+      <div class="text-center py-8">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <p class="mt-2 text-sm text-gray-500">Loading category attributes...</p>
+      </div>
+    `;
+
+    // Fetch category attributes
+    fetch(`/shops/<%= @shop.id %>/olx_category_templates/load_attributes?category_id=${categoryId}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.attributes && data.attributes.length > 0) {
+          renderAttributes(data.attributes);
+        } else {
+          attributesContainer.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+              <p>No attributes found for this category</p>
+            </div>
+          `;
+        }
+      })
+      .catch(error => {
+        console.error('Error loading attributes:', error);
+        attributesContainer.innerHTML = `
+          <div class="text-center py-8 text-red-500">
+            <p>Error loading attributes. Please try again.</p>
+          </div>
+        `;
+      });
+  });
+
+  function renderAttributes(attributes) {
+    const existingMappings = <%= raw (template.attribute_mappings || {}).to_json %>;
+
+    let html = '<div class="space-y-4">';
+
+    attributes.forEach(attr => {
+      const isRequired = attr.required ? '<span class="text-red-600">*</span>' : '';
+      const existingValue = existingMappings[attr.name] || existingMappings[attr.external_id] || '';
+
+      html += `
+        <div class="border border-gray-200 rounded-lg p-4">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-gray-700">
+                ${attr.label || attr.name} ${isRequired}
+              </label>
+              ${attr.required ? '<p class="mt-1 text-xs text-gray-500">Required</p>' : ''}
+              ${attr.type ? `<p class="mt-1 text-xs text-gray-500">Type: ${attr.type}</p>` : ''}
+            </div>
+          </div>
+          <div class="mt-3">
+            <input type="text"
+              name="olx_category_template[attribute_mappings][${attr.external_id || attr.name}]"
+              value="${existingValue}"
+              placeholder="e.g., product.brand, fixed:New, extract:width"
+              class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            ${attr.values && attr.values.length > 0 ? `
+              <p class="mt-2 text-xs text-gray-500">
+                Possible values: ${attr.values.slice(0, 5).join(', ')}${attr.values.length > 5 ? '...' : ''}
+              </p>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    });
+
+    html += '</div>';
+    attributesContainer.innerHTML = html;
+  }
+});
+</script>
