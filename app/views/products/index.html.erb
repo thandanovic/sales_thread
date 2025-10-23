@@ -26,6 +26,35 @@
     </div>
   <% end %>
 
+  <%# OLX Bulk Actions %>
+  <div class="mb-4 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+      <div class="flex items-center space-x-3">
+        <svg class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+        <label class="text-sm font-medium text-indigo-900">OLX Bulk Operations:</label>
+      </div>
+      <div class="flex items-center gap-3">
+        <form action="<%= bulk_publish_to_olx_shop_products_path(@shop) %>" method="post" id="bulk-publish-form" style="display: inline;">
+          <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+          <input type="submit" value="Publish Live on OLX" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+        </form>
+
+        <form action="<%= bulk_update_on_olx_shop_products_path(@shop) %>" method="post" id="bulk-update-form" style="display: inline;">
+          <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+          <input type="submit" value="Update on OLX" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+        </form>
+
+        <form action="<%= bulk_remove_from_olx_shop_products_path(@shop) %>" method="post" id="bulk-remove-form" style="display: inline;" data-turbo-confirm="Are you sure? This will remove the selected products from OLX (but keep them in your database).">
+          <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+          <%= hidden_field_tag :_method, :delete %>
+          <input type="submit" value="Remove from OLX" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+        </form>
+      </div>
+    </div>
+  </div>
+
   <%= form_with url: bulk_destroy_shop_products_path(@shop), method: :delete, class: "mb-4", id: "bulk-delete-form", data: { turbo_confirm: "Are you sure? This will permanently delete the selected products and all associated data (images, OLX listings, import records). This action cannot be undone." } do |f| %>
     <div class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between">
       <div class="flex items-center space-x-4">
@@ -55,7 +84,6 @@
           <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
           <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Margin (%)</th>
           <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Price</th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
           <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
           <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
           <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -104,9 +132,6 @@
               <%= number_to_currency(product.final_price || 0, unit: product.currency || "BAM") %>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              <%= product.stock || 0 %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               <%= product.branch_availability || '-' %>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -140,6 +165,9 @@
       const deselectAllBtn = document.getElementById('deselect-all-btn');
       const bulkMarginForm = document.getElementById('bulk-margin-form');
       const bulkDeleteForm = document.getElementById('bulk-delete-form');
+      const bulkPublishForm = document.getElementById('bulk-publish-form');
+      const bulkUpdateForm = document.getElementById('bulk-update-form');
+      const bulkRemoveForm = document.getElementById('bulk-remove-form');
 
       // Sync checkboxes with select all checkbox
       selectAllCheckbox.addEventListener('change', function() {
@@ -209,6 +237,46 @@
           alert('Please select at least one product to delete.');
           return false;
         }
+      });
+
+      // Helper function to copy product IDs to a form
+      function copyProductIdsToForm(form, e) {
+        // Remove any existing product_ids inputs
+        const existingInputs = form.querySelectorAll('input[name="product_ids[]"]');
+        existingInputs.forEach(input => input.remove());
+
+        // Add new inputs for checked products
+        let hasChecked = false;
+        productCheckboxes.forEach(cb => {
+          if (cb.checked) {
+            hasChecked = true;
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'product_ids[]';
+            input.value = cb.value;
+            form.appendChild(input);
+          }
+        });
+
+        // Prevent submission if no products selected
+        if (!hasChecked) {
+          e.preventDefault();
+          alert('Please select at least one product.');
+          return false;
+        }
+      }
+
+      // Copy checked product IDs to OLX forms on submit
+      bulkPublishForm.addEventListener('submit', function(e) {
+        copyProductIdsToForm(bulkPublishForm, e);
+      });
+
+      bulkUpdateForm.addEventListener('submit', function(e) {
+        copyProductIdsToForm(bulkUpdateForm, e);
+      });
+
+      bulkRemoveForm.addEventListener('submit', function(e) {
+        copyProductIdsToForm(bulkRemoveForm, e);
       });
     });
   </script>

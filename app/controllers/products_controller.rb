@@ -1,11 +1,11 @@
 class ProductsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_shop, only: [:index, :show, :new, :create, :edit, :update, :destroy, :bulk_update_margin, :bulk_destroy, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx]
+  before_action :set_shop, only: [:index, :show, :new, :create, :edit, :update, :destroy, :bulk_update_margin, :bulk_destroy, :bulk_publish_to_olx, :bulk_update_on_olx, :bulk_remove_from_olx, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx]
   before_action :set_product, only: [:show, :edit, :update, :destroy, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx]
-  before_action :authorize_shop, only: [:new, :create, :edit, :update, :destroy, :bulk_update_margin, :bulk_destroy, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx]
+  before_action :authorize_shop, only: [:new, :create, :edit, :update, :destroy, :bulk_update_margin, :bulk_destroy, :bulk_publish_to_olx, :bulk_update_on_olx, :bulk_remove_from_olx, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx]
 
   def index
-    @products = @shop.products.order(created_at: :desc).page(params[:page])
+    @products = @shop.products.order(created_at: :desc).page(params[:page]).per(100)
   end
 
   def show
@@ -39,6 +39,17 @@ class ProductsController < ApplicationController
   end
 
   def destroy
+    # Remove from OLX first if published
+    if @product.has_olx_listing?
+      begin
+        @product.remove_from_olx
+        Rails.logger.info "[Products] Product #{@product.id} removed from OLX before deletion"
+      rescue => e
+        Rails.logger.error "[Products] Failed to remove product #{@product.id} from OLX: #{e.message}"
+        # Continue with deletion even if OLX removal fails
+      end
+    end
+
     @product.destroy
     redirect_to shop_products_path(@shop), notice: 'Product was successfully deleted.'
   end
@@ -75,7 +86,23 @@ class ProductsController < ApplicationController
     end
 
     deleted_count = 0
+    olx_removed_count = 0
+    olx_failed_count = 0
+
     @shop.products.where(id: product_ids).find_each do |product|
+      # Remove from OLX first if published
+      if product.has_olx_listing?
+        begin
+          product.remove_from_olx
+          olx_removed_count += 1
+          Rails.logger.info "[Products] Product #{product.id} removed from OLX before deletion"
+        rescue => e
+          olx_failed_count += 1
+          Rails.logger.error "[Products] Failed to remove product #{product.id} from OLX: #{e.message}"
+          # Continue with deletion even if OLX removal fails
+        end
+      end
+
       # This will cascade delete:
       # - olx_listing (dependent: :destroy)
       # - imported_products (dependent: :destroy)
@@ -84,7 +111,127 @@ class ProductsController < ApplicationController
       deleted_count += 1
     end
 
-    redirect_to shop_products_path(@shop), notice: "Successfully deleted #{deleted_count} product(s) and all associated data."
+    notice = "Successfully deleted #{deleted_count} product(s) and all associated data."
+    notice += " Removed #{olx_removed_count} listing(s) from OLX." if olx_removed_count > 0
+    notice += " Failed to remove #{olx_failed_count} listing(s) from OLX." if olx_failed_count > 0
+
+    redirect_to shop_products_path(@shop), notice: notice
+  end
+
+  ##
+  # Bulk publish products to OLX live
+  #
+  def bulk_publish_to_olx
+    product_ids = params[:product_ids] || []
+
+    if product_ids.empty?
+      redirect_to shop_products_path(@shop), alert: 'No products selected.'
+      return
+    end
+
+    published_count = 0
+    failed_count = 0
+    errors = []
+
+    @shop.products.where(id: product_ids).find_each do |product|
+      begin
+        product.publish_to_olx!  # Publish live with the bang method
+        published_count += 1
+        Rails.logger.info "[Products] Bulk: Published product #{product.id} to OLX live"
+      rescue => e
+        failed_count += 1
+        errors << "#{product.title}: #{e.message}"
+        Rails.logger.error "[Products] Bulk: Failed to publish product #{product.id}: #{e.message}"
+      end
+    end
+
+    notice = "Published #{published_count} product(s) live on OLX."
+    notice += " #{failed_count} failed." if failed_count > 0
+    notice += "<br><br>Errors:<br>#{errors.join('<br>')}" if errors.any?
+
+    redirect_to shop_products_path(@shop), notice: notice.html_safe
+  end
+
+  ##
+  # Bulk update products on OLX
+  #
+  def bulk_update_on_olx
+    product_ids = params[:product_ids] || []
+
+    if product_ids.empty?
+      redirect_to shop_products_path(@shop), alert: 'No products selected.'
+      return
+    end
+
+    updated_count = 0
+    failed_count = 0
+    skipped_count = 0
+    errors = []
+
+    @shop.products.where(id: product_ids).find_each do |product|
+      unless product.has_olx_listing?
+        skipped_count += 1
+        next
+      end
+
+      begin
+        OlxListingService.new(product).update_listing(product.olx_listing)
+        updated_count += 1
+        Rails.logger.info "[Products] Bulk: Updated product #{product.id} on OLX"
+      rescue => e
+        failed_count += 1
+        errors << "#{product.title}: #{e.message}"
+        Rails.logger.error "[Products] Bulk: Failed to update product #{product.id}: #{e.message}"
+      end
+    end
+
+    notice = "Updated #{updated_count} product(s) on OLX."
+    notice += " #{skipped_count} skipped (not published)." if skipped_count > 0
+    notice += " #{failed_count} failed." if failed_count > 0
+    notice += "<br><br>Errors:<br>#{errors.join('<br>')}" if errors.any?
+
+    redirect_to shop_products_path(@shop), notice: notice.html_safe
+  end
+
+  ##
+  # Bulk remove products from OLX
+  #
+  def bulk_remove_from_olx
+    product_ids = params[:product_ids] || []
+
+    if product_ids.empty?
+      redirect_to shop_products_path(@shop), alert: 'No products selected.'
+      return
+    end
+
+    removed_count = 0
+    failed_count = 0
+    skipped_count = 0
+    errors = []
+
+    @shop.products.where(id: product_ids).find_each do |product|
+      unless product.has_olx_listing?
+        skipped_count += 1
+        next
+      end
+
+      begin
+        product.remove_from_olx
+        removed_count += 1
+        Rails.logger.info "[Products] Bulk: Removed product #{product.id} from OLX"
+      rescue => e
+        failed_count += 1
+        errors << "#{product.title}: #{e.message}"
+        Rails.logger.error "[Products] Bulk: Failed to remove product #{product.id}: #{e.message}"
+      end
+    end
+
+    notice = "Removed #{removed_count} product(s) from OLX."
+    notice += " #{skipped_count} skipped (not published)." if skipped_count > 0
+    notice += " #{failed_count} failed." if failed_count > 0
+    notice += "<br><br>Errors:<br>#{errors.join('<br>')}" if errors.any?
+
+    redirect_to shop_products_path(@shop), notice: notice.html_safe
   end
 
   ##

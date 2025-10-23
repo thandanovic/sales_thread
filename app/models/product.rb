@@ -114,14 +114,17 @@ class Product < ApplicationRecord
       placeholder = $1
       case placeholder.downcase
       when 'brand'
-        brand.to_s
-      when 'title'
+        brand.to_s  # Product brand field (short code like "ZOCW")
+      when 'brend'
+        # Extract from specs (full brand name like "CROSSWIND")
+        extract_spec_value('Brend') || brand.to_s
+      when 'title', 'naslov'
         title.to_s
-      when 'sku'
+      when 'sku', 'sifra'
         sku.to_s
-      when 'category'
+      when 'category', 'kategorija'
         category.to_s
-      when 'price'
+      when 'price', 'cijena', 'cena'
         final_price.present? ? "#{final_price} #{currency}" : price.to_s
       else
         match # Keep original if not recognized
@@ -138,52 +141,98 @@ class Product < ApplicationRecord
     return description unless olx_category_template&.description_filter.present?
     return description unless description.present?
 
-    allowed_fields = olx_category_template.description_filter
-    filtered_lines = []
+    allowed_fields = olx_category_template.description_filter.reject(&:blank?)
+    return description if allowed_fields.empty?
 
-    # Parse description line by line
-    description.split("\n").each do |line|
-      line = line.strip
-      next if line.blank?
+    filtered_parts = []
 
-      # Check if this line matches any allowed field (only add once)
-      line_matched = false
-      allowed_fields.each do |field|
-        break if line_matched
+    # Check if description uses comma-separated format (single line) or line-separated format
+    if description.include?(', ') && !description.include?("\n")
+      # Comma-separated format: "Attr1: val1, Attr2: val2, ..."
+      parts = description.split(', ').map(&:strip)
 
-        patterns = field_to_patterns(field)
-        patterns.each do |pattern|
-          if line.match?(/#{Regexp.escape(pattern)}/i)
-            filtered_lines << line
-            line_matched = true
-            break
+      parts.each do |part|
+        next if part.blank?
+
+        # Check if this part matches any allowed field
+        part_matched = false
+        allowed_fields.each do |field|
+          break if part_matched
+
+          patterns = field_to_patterns(field)
+          patterns.each do |pattern|
+            if part.match?(/^#{Regexp.escape(pattern)}\s*:/i)
+              filtered_parts << part
+              part_matched = true
+              break
+            end
           end
         end
       end
+
+      result = filtered_parts.join(', ')
+    else
+      # Line-separated format: multiple lines
+      filtered_lines = []
+
+      description.split("\n").each do |line|
+        line = line.strip
+        next if line.blank?
+
+        # Check if this line matches any allowed field
+        line_matched = false
+        allowed_fields.each do |field|
+          break if line_matched
+
+          patterns = field_to_patterns(field)
+          patterns.each do |pattern|
+            if line.match?(/#{Regexp.escape(pattern)}/i)
+              filtered_lines << line
+              line_matched = true
+              break
+            end
+          end
+        end
+      end
+
+      # Add SKU and Brand if they're in the filter and not already in filtered lines
+      if allowed_fields.include?('sku') && sku.present?
+        sku_line = "SKU: #{sku}"
+        filtered_lines << sku_line unless filtered_lines.any? { |l| l.include?("SKU:") }
+      end
+
+      if allowed_fields.include?('brand') && brand.present?
+        brand_line = "Brand: #{brand}"
+        filtered_lines << brand_line unless filtered_lines.any? { |l| l.match?(/Brand:|Brend:/i) }
+      end
+
+      result = filtered_lines.join("\n")
     end
 
-    # Add SKU and Brand if they're in the filter and not already in filtered lines
-    if allowed_fields.include?('sku') && sku.present?
-      sku_line = "SKU: #{sku}"
-      filtered_lines << sku_line unless filtered_lines.any? { |l| l.include?("SKU:") }
-    end
-
-    if allowed_fields.include?('brand') && brand.present?
-      brand_line = "Brand: #{brand}"
-      filtered_lines << brand_line unless filtered_lines.any? { |l| l.match?(/Brand:|Brend:/i) }
-    end
-
-    result = filtered_lines.join("\n")
     result.present? ? result : description
   end
 
   ##
   # Auto-populate olx_title and olx_description before publishing
   # This should be called before creating/updating OLX listings
+  # Always regenerates from templates to ensure latest data
   #
   def auto_populate_olx_fields
-    self.olx_title = generate_olx_title if olx_title.blank?
-    self.olx_description = generate_olx_description if olx_description.blank?
+    self.olx_title = generate_olx_title
+    self.olx_description = generate_olx_description
+  end
+
+  ##
+  # Extract a value from the specs JSON by key name
+  #
+  # @param key [String] The spec key to extract
+  # @return [String, nil] The spec value or nil
+  #
+  def extract_spec_value(key)
+    return nil unless specs.present?
+
+    specs_hash = JSON.parse(specs) rescue {}
+    specs_hash[key]
   end
 
   private

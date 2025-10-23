@@ -248,7 +248,7 @@ class OlxApiService
         # Build multipart body
         post_body = []
         post_body << "--#{boundary}\r\n"
-        post_body << "Content-Disposition: form-data; name=\"image\"; filename=\"#{filename}\"\r\n"
+        post_body << "Content-Disposition: form-data; name=\"images[]\"; filename=\"#{filename}\"\r\n"
         post_body << "Content-Type: image/jpeg\r\n\r\n"
         post_body << image_data
         post_body << "\r\n--#{boundary}--\r\n"

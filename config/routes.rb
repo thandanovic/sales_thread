@@ -16,6 +16,9 @@ Rails.application.routes.draw do
         collection do
           post :bulk_update_margin
           delete :bulk_destroy
+          post :bulk_publish_to_olx
+          post :bulk_update_on_olx
+          delete :bulk_remove_from_olx
         end
         member do
           post :publish_to_olx
