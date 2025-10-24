@@ -5,7 +5,27 @@ class ProductsController < ApplicationController
   before_action :authorize_shop, only: [:new, :create, :edit, :update, :destroy, :bulk_update_margin, :bulk_destroy, :bulk_publish_to_olx, :bulk_update_on_olx, :bulk_remove_from_olx, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx]
 
   def index
-    @products = @shop.products.order(created_at: :desc).page(params[:page]).per(100)
+    @products = @shop.products.order(created_at: :desc)
+
+    # Filter by OLX status
+    if params[:olx_status].present?
+      case params[:olx_status]
+      when 'live'
+        @products = @products.joins(:olx_listing).where(olx_listings: { status: 'published' })
+      when 'draft'
+        @products = @products.joins(:olx_listing).where(olx_listings: { status: 'draft' })
+      when 'not_on_olx'
+        @products = @products.left_joins(:olx_listing).where(olx_listings: { id: nil })
+      end
+    end
+
+    # Filter by template
+    if params[:template_id].present?
+      @products = @products.where(olx_category_template_id: params[:template_id])
+    end
+
+    @products = @products.page(params[:page]).per(100)
+    @templates = @shop.olx_category_templates.order(:name)
   end
 
   def show
@@ -147,7 +167,14 @@ class ProductsController < ApplicationController
 
     notice = "Published #{published_count} product(s) live on OLX."
     notice += " #{failed_count} failed." if failed_count > 0
-    notice += "<br><br>Errors:<br>#{errors.join('<br>')}" if errors.any?
+
+    # Limit errors shown to prevent cookie overflow
+    if errors.any?
+      max_errors_shown = 5
+      notice += "<br><br>First #{[errors.size, max_errors_shown].min} error(s):<br>"
+      notice += errors.first(max_errors_shown).join('<br>')
+      notice += "<br>...and #{errors.size - max_errors_shown} more errors. Check logs for details." if errors.size > max_errors_shown
+    end
 
     redirect_to shop_products_path(@shop), notice: notice.html_safe
   end
@@ -188,7 +215,14 @@ class ProductsController < ApplicationController
     notice = "Updated #{updated_count} product(s) on OLX."
     notice += " #{skipped_count} skipped (not published)." if skipped_count > 0
     notice += " #{failed_count} failed." if failed_count > 0
-    notice += "<br><br>Errors:<br>#{errors.join('<br>')}" if errors.any?
+
+    # Limit errors shown to prevent cookie overflow
+    if errors.any?
+      max_errors_shown = 5
+      notice += "<br><br>First #{[errors.size, max_errors_shown].min} error(s):<br>"
+      notice += errors.first(max_errors_shown).join('<br>')
+      notice += "<br>...and #{errors.size - max_errors_shown} more errors. Check logs for details." if errors.size > max_errors_shown
+    end
 
     redirect_to shop_products_path(@shop), notice: notice.html_safe
   end
@@ -229,7 +263,14 @@ class ProductsController < ApplicationController
     notice = "Removed #{removed_count} product(s) from OLX."
     notice += " #{skipped_count} skipped (not published)." if skipped_count > 0
     notice += " #{failed_count} failed." if failed_count > 0
-    notice += "<br><br>Errors:<br>#{errors.join('<br>')}" if errors.any?
+
+    # Limit errors shown to prevent cookie overflow
+    if errors.any?
+      max_errors_shown = 5
+      notice += "<br><br>First #{[errors.size, max_errors_shown].min} error(s):<br>"
+      notice += errors.first(max_errors_shown).join('<br>')
+      notice += "<br>...and #{errors.size - max_errors_shown} more errors. Check logs for details." if errors.size > max_errors_shown
+    end
 
     redirect_to shop_products_path(@shop), notice: notice.html_safe
   end
