@@ -618,11 +618,33 @@ async function extractImagesFromProductCard(page, productIndex) {
         if (img) {
           const src = img.src || img.getAttribute('data-src');
           if (src && src.includes('ic-files-res.cloudinary.com')) {
-            // Convert to 300x300 format for consistency
-            const url300 = src.replace(/t_t\d+x\d+v\d+/, 't_t300x300v2');
-            if (!images.includes(url300)) {
-              images.push(url300);
-              const filename = url300.substring(url300.lastIndexOf('/') + 1);
+            // Try to get the best quality image available
+            // First, try 1200x1200, if that doesn't exist the Rails service will fall back to what's available
+            // Extract current size if present
+            const sizeMatch = src.match(/t_t(\d+)x(\d+)v\d+/);
+            let finalUrl = src;
+
+            if (sizeMatch) {
+              const currentWidth = parseInt(sizeMatch[1]);
+              const currentHeight = parseInt(sizeMatch[2]);
+
+              // If current size is small (< 300), try to get larger versions
+              if (currentWidth < 300 || currentHeight < 300) {
+                // Try 1200x1200 as the preferred size
+                finalUrl = src.replace(/t_t\d+x\d+v\d+/, 't_t1200x1200v1');
+                console.log(`[IMG MODAL] Slide ${idx + 1}: Upgrading from ${currentWidth}x${currentHeight} to 1200x1200`);
+              } else {
+                // Current size is >= 300, keep it as-is
+                console.log(`[IMG MODAL] Slide ${idx + 1}: Using existing size ${currentWidth}x${currentHeight}`);
+              }
+            } else {
+              // No size transformation in URL, use as-is (original)
+              console.log(`[IMG MODAL] Slide ${idx + 1}: Using original image (no size transformation)`);
+            }
+
+            if (!images.includes(finalUrl)) {
+              images.push(finalUrl);
+              const filename = finalUrl.substring(finalUrl.lastIndexOf('/') + 1);
               console.log(`[IMG MODAL] Slide ${idx + 1}: ${filename}`);
             }
           } else {

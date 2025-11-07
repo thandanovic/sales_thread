@@ -110,7 +110,8 @@ class Product < ApplicationRecord
     template = olx_category_template.title_template
 
     # Replace placeholders with actual values
-    template.gsub(/\{(\w+)\}/) do |match|
+    # Match word characters including Unicode (for special chars like đ, č, š, ž, ć)
+    template.gsub(/\{([^\}]+)\}/) do |match|
       placeholder = $1
       case placeholder.downcase
       when 'brand'
@@ -127,7 +128,12 @@ class Product < ApplicationRecord
       when 'price', 'cijena', 'cena'
         final_price.present? ? "#{final_price} #{currency}" : price.to_s
       else
-        match # Keep original if not recognized
+        # Try to extract from specs using the placeholder as a spec key
+        # Supports both snake_case and exact matches
+        # e.g., {proizvodac_akumulatora} matches "Proizvođač akumulatora"
+        # e.g., {proizvođač_akumulatora} matches "Proizvođač akumulatora"
+        # e.g., {tip} matches "Tip"
+        extract_spec_by_placeholder(placeholder) || match
       end
     end
   end
@@ -235,7 +241,70 @@ class Product < ApplicationRecord
     specs_hash[key]
   end
 
+  ##
+  # Extract a spec value using a placeholder string
+  # Converts snake_case placeholders to match actual spec keys
+  #
+  # @param placeholder [String] The placeholder string (e.g., "proizvodac_akumulatora")
+  # @return [String, nil] The spec value or nil
+  #
+  def extract_spec_by_placeholder(placeholder)
+    return nil unless specs.present?
+
+    specs_hash = JSON.parse(specs) rescue {}
+    return nil if specs_hash.empty?
+
+    # Try exact match first (case-insensitive)
+    exact_match = specs_hash.keys.find { |k| k.downcase == placeholder.downcase }
+    return specs_hash[exact_match] if exact_match
+
+    # Try normalized match: convert snake_case to title case
+    # e.g., "proizvodac_akumulatora" → "Proizvođač akumulatora"
+    normalized = normalize_placeholder(placeholder)
+
+    # Find matching spec key
+    matched_key = specs_hash.keys.find do |key|
+      # Remove special characters and compare
+      normalize_spec_key(key) == normalized
+    end
+
+    specs_hash[matched_key] if matched_key
+  end
+
   private
+
+  ##
+  # Normalize a placeholder for matching against spec keys
+  # Converts snake_case to space-separated lowercase and removes special characters
+  #
+  def normalize_placeholder(placeholder)
+    # First replace underscores with spaces
+    normalized = placeholder.gsub('_', ' ')
+
+    # Remove accents and special characters
+    normalized.gsub(/[čćžšđ]/i, {
+      'č' => 'c', 'Č' => 'c',
+      'ć' => 'c', 'Ć' => 'c',
+      'ž' => 'z', 'Ž' => 'z',
+      'š' => 's', 'Š' => 's',
+      'đ' => 'd', 'Đ' => 'd'
+    }).downcase
+  end
+
+  ##
+  # Normalize a spec key for comparison
+  # Removes special characters and converts to lowercase
+  #
+  def normalize_spec_key(key)
+    # Remove accents and special characters, convert to lowercase
+    key.gsub(/[čćžšđ]/i, {
+      'č' => 'c', 'Č' => 'c',
+      'ć' => 'c', 'Ć' => 'c',
+      'ž' => 'z', 'Ž' => 'z',
+      'š' => 's', 'Š' => 's',
+      'đ' => 'd', 'Đ' => 'd'
+    }).downcase
+  end
 
   def field_to_patterns(field)
     field_map = {

@@ -26,12 +26,41 @@
 
         <div>
           <%= form.label :title_template, "OLX Title Template", class: "block text-sm font-medium text-gray-700" %>
-          <%= form.text_field :title_template, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md", placeholder: "e.g., {brand} {title} - Zimske Gume" %>
-          <p class="mt-1 text-sm text-gray-500">
-            Template for OLX listing titles. Use placeholders: {brand}, {title}, {sku}, {category}, {price}
-          </p>
-          <p class="mt-1 text-xs text-gray-400">
-            Example: "{brand} {title} - Zimske Gume" → "CONTINENTAL 225/55R19 ZOCO 99V TS870P - Zimske Gume"
+          <%= form.text_field :title_template, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md", placeholder: "e.g., Akumulator {proizvodac_akumulatora} {kapacitet_baterije}" %>
+
+          <!-- Show Available Placeholders Button -->
+          <div class="mt-3">
+            <button type="button" id="show-placeholders-btn" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Show Available Placeholders
+            </button>
+          </div>
+
+          <!-- Placeholders Container -->
+          <div id="placeholders-container" class="mt-3 hidden">
+            <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <div class="flex items-center justify-between mb-3">
+                <h4 class="text-sm font-medium text-gray-900">Available Placeholders</h4>
+                <button type="button" id="hide-placeholders-btn" class="text-xs text-gray-500 hover:text-gray-700">
+                  Hide
+                </button>
+              </div>
+
+              <div id="placeholders-content">
+                <div class="text-center py-4">
+                  <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                  <p class="mt-2 text-sm text-gray-500">Loading placeholders...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p class="mt-2 text-xs text-gray-400">
+            <strong>Examples:</strong><br>
+            Tyres: "{brand} {title}" → "CONTINENTAL 225/55R19 ZOCO 99V TS870P"<br>
+            Batteries: "Akumulator {proizvodac_akumulatora} {kapacitet_baterije}" → "Akumulator 4MAX 77.0 Ah"
           </p>
         </div>
 
@@ -122,60 +151,55 @@
   <!-- Description Filter -->
   <div class="bg-white shadow sm:rounded-lg">
     <div class="px-4 py-5 sm:p-6">
-      <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Description Filter</h3>
-      <p class="text-sm text-gray-500 mb-4">Select which fields from the product description should be included in the OLX listing. Only selected fields will be visible on OLX.</p>
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-lg font-medium leading-6 text-gray-900">Description Filter</h3>
+          <p class="mt-1 text-sm text-gray-500">Select which product specs should be included in the OLX listing description</p>
+        </div>
+        <button type="button" id="load-specs-btn" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+          Load Specs
+        </button>
+      </div>
 
-      <div class="space-y-2">
-        <% description_fields = [
-          ['Namjena', 'namjena'],
-          ['Širina', 'sirina'],
-          ['Profil', 'profil'],
-          ['Promjer', 'promjer'],
-          ['Sezona', 'sezona'],
-          ['Klasa', 'klasa'],
-          ['Brend', 'brend'],
-          ['Profil gume', 'profil_gume'],
-          ['Index nosivosti', 'index_nosivosti'],
-          ['Indeks brzine', 'indeks_brzine'],
-          ['Indeks potrošnje', 'indeks_potrosnje'],
-          ['Indeks prianjanja na mokroj podlozi', 'indeks_prianjanja'],
-          ['Klasa razine buke', 'klasa_buke'],
-          ['Razine buke', 'razine_buke'],
-          ['Klasa guma', 'klasa_guma'],
-          ['Prianjanje na snijegu', 'prianjanje_snijeg'],
-          ['Prianjanje na ledu', 'prianjanje_led'],
-          ['Tip (konstrukcija)', 'tip_konstrukcija'],
-          ['Zr', 'zracnica'],
-          ['Zaštitni naplatak', 'zastitni_naplatak'],
-          ['Tip zaštitnog naplatka', 'tip_zastitnog_naplatka'],
-          ['Primjena na osovinu', 'primjena_osovina'],
-          ['Stari DOT', 'stari_dot'],
-          ['Oznaka M+S', 'oznaka_ms'],
-          ['Vrsta gume', 'vrsta_gume'],
-          ['Šifra proizvođača', 'sifra_proizvodaca'],
-          ['EAN bar-kod', 'ean'],
-          ['Veličina', 'velicina'],
-          ['Težina', 'tezina'],
-          ['SKU', 'sku'],
-          ['Brand', 'brand']
-        ] %>
-
-        <% description_fields.each do |label, value| %>
-          <div class="flex items-center">
-            <%= check_box_tag "olx_category_template[description_filter][]", value,
-                template.description_filter&.include?(value),
-                id: "description_filter_#{value}",
-                class: "h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" %>
-            <%= label_tag "description_filter_#{value}", label, class: "ml-2 text-sm text-gray-700" %>
+      <div id="specs-container">
+        <% if template.description_filter&.any? %>
+          <!-- Show existing description_filter if editing -->
+          <div class="space-y-2">
+            <% template.description_filter.each do |field| %>
+              <div class="flex items-center">
+                <%= check_box_tag "olx_category_template[description_filter][]", field, true,
+                    id: "description_filter_#{field}",
+                    class: "h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" %>
+                <%= label_tag "description_filter_#{field}", field.titleize, class: "ml-2 text-sm text-gray-700" %>
+              </div>
+            <% end %>
+          </div>
+        <% else %>
+          <div class="text-center py-8 text-gray-500">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p class="mt-2">Click "Load Specs" to load available product specifications from a sample product</p>
           </div>
         <% end %>
-
         <%= hidden_field_tag "olx_category_template[description_filter][]", "", id: "hidden_description_filter" %>
       </div>
 
-      <p class="mt-4 text-xs text-gray-500">
-        <strong>Tip:</strong> Select only the fields you want customers to see on OLX. Unselected fields will not be included in the listing description.
-      </p>
+      <div class="mt-4 rounded-md bg-blue-50 p-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <div class="ml-3 flex-1">
+            <h3 class="text-sm font-medium text-blue-800">How it works</h3>
+            <div class="mt-2 text-sm text-blue-700">
+              <p>Click "Load Specs" to automatically detect available product specifications from your imported products. Only the specs you select will appear in the OLX listing description.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -190,11 +214,146 @@ document.addEventListener('DOMContentLoaded', function() {
   const categorySelect = document.getElementById('category-select');
   const loadAttributesBtn = document.getElementById('load-attributes-btn');
   const attributesContainer = document.getElementById('attributes-container');
+  const loadSpecsBtn = document.getElementById('load-specs-btn');
+  const specsContainer = document.getElementById('specs-container');
+  const showPlaceholdersBtn = document.getElementById('show-placeholders-btn');
+  const hidePlaceholdersBtn = document.getElementById('hide-placeholders-btn');
+  const placeholdersContainer = document.getElementById('placeholders-container');
+  const placeholdersContent = document.getElementById('placeholders-content');
+  const titleInput = document.querySelector('#olx_category_template_title_template');
+
+  let placeholdersLoaded = false;
 
   // Pre-populate existing mappings if editing
   <% if template.persisted? && template.attribute_mappings.present? %>
     loadAttributesBtn.click();
   <% end %>
+
+  // Show placeholders section
+  showPlaceholdersBtn.addEventListener('click', function() {
+    placeholdersContainer.classList.remove('hidden');
+
+    // Load placeholders if not already loaded
+    if (!placeholdersLoaded) {
+      loadPlaceholders();
+    }
+  });
+
+  // Hide placeholders section
+  hidePlaceholdersBtn.addEventListener('click', function() {
+    placeholdersContainer.classList.add('hidden');
+  });
+
+  // Load placeholders from API
+  function loadPlaceholders() {
+    fetch(`/shops/<%= @shop.id %>/olx_category_templates/load_placeholders`)
+      .then(response => response.json())
+      .then(data => {
+        placeholdersLoaded = true;
+        renderPlaceholders(data);
+      })
+      .catch(error => {
+        console.error('Error loading placeholders:', error);
+        placeholdersContent.innerHTML = `
+          <div class="text-center py-4 text-red-500">
+            <p>Error loading placeholders. Please try again.</p>
+          </div>
+        `;
+      });
+  }
+
+  // Render placeholders in a nice format
+  function renderPlaceholders(data) {
+    let html = '';
+
+    // Show sample product info if available
+    if (data.sample_product) {
+      html += `
+        <div class="mb-4 text-xs text-gray-600 bg-white border border-gray-200 rounded p-2">
+          <strong>Sample from:</strong> ${data.sample_product.title} (${data.sample_product.sku})
+        </div>
+      `;
+    }
+
+    // Basic placeholders
+    if (data.basic && data.basic.length > 0) {
+      html += '<div class="mb-4">';
+      html += '<h5 class="text-xs font-semibold text-gray-700 mb-2">Basic Placeholders</h5>';
+      html += '<div class="grid grid-cols-1 gap-2">';
+
+      data.basic.forEach(placeholder => {
+        html += `
+          <div class="bg-white border border-gray-200 rounded p-2 hover:border-indigo-300 cursor-pointer transition-colors"
+               onclick="insertPlaceholder('${placeholder.name}')">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <code class="text-xs font-mono text-indigo-600">{${placeholder.name}}</code>
+                <p class="text-xs text-gray-600 mt-0.5">${placeholder.description}</p>
+              </div>
+            </div>
+            <div class="mt-1 text-xs text-gray-500">
+              Example: <span class="font-medium">${placeholder.example}</span>
+            </div>
+          </div>
+        `;
+      });
+
+      html += '</div></div>';
+    }
+
+    // Spec-based placeholders
+    if (data.specs && data.specs.length > 0) {
+      html += '<div>';
+      html += '<h5 class="text-xs font-semibold text-gray-700 mb-2">Product Specification Placeholders</h5>';
+      html += '<div class="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto">';
+
+      data.specs.forEach(placeholder => {
+        html += `
+          <div class="bg-white border border-gray-200 rounded p-2 hover:border-indigo-300 cursor-pointer transition-colors"
+               onclick="insertPlaceholder('${placeholder.name}')">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <code class="text-xs font-mono text-indigo-600">{${placeholder.name}}</code>
+                <p class="text-xs text-gray-600 mt-0.5">${placeholder.description}</p>
+              </div>
+            </div>
+            <div class="mt-1 text-xs text-gray-500">
+              Example: <span class="font-medium">${placeholder.example}</span>
+            </div>
+          </div>
+        `;
+      });
+
+      html += '</div></div>';
+    }
+
+    if (!data.basic || data.basic.length === 0 && (!data.specs || data.specs.length === 0)) {
+      html = '<p class="text-sm text-gray-500 text-center py-4">No placeholders available. Import some products first.</p>';
+    }
+
+    placeholdersContent.innerHTML = html;
+  }
+
+  // Insert placeholder into title input at cursor position
+  window.insertPlaceholder = function(name) {
+    const placeholder = `{${name}}`;
+    const input = titleInput;
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const text = input.value;
+
+    // Insert at cursor position
+    input.value = text.substring(0, start) + placeholder + text.substring(end);
+
+    // Move cursor after inserted placeholder
+    const newPosition = start + placeholder.length;
+    input.setSelectionRange(newPosition, newPosition);
+    input.focus();
+
+    // Trigger change event
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
 
   loadAttributesBtn.addEventListener('click', function() {
     const categoryId = categorySelect.value;
@@ -231,6 +390,39 @@ document.addEventListener('DOMContentLoaded', function() {
         attributesContainer.innerHTML = `
           <div class="text-center py-8 text-red-500">
             <p>Error loading attributes. Please try again.</p>
+          </div>
+        `;
+      });
+  });
+
+  loadSpecsBtn.addEventListener('click', function() {
+    // Show loading state
+    specsContainer.innerHTML = `
+      <div class="text-center py-8">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <p class="mt-2 text-sm text-gray-500">Loading product specifications...</p>
+      </div>
+    `;
+
+    // Fetch available specs from a sample product
+    fetch(`/shops/<%= @shop.id %>/olx_category_templates/load_specs`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.specs && data.specs.length > 0) {
+          renderSpecs(data.specs, data.sample_product);
+        } else {
+          specsContainer.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+              <p>${data.message || 'No specifications found. Import some products first.'}</p>
+            </div>
+          `;
+        }
+      })
+      .catch(error => {
+        console.error('Error loading specs:', error);
+        specsContainer.innerHTML = `
+          <div class="text-center py-8 text-red-500">
+            <p>Error loading specifications. Please try again.</p>
           </div>
         `;
       });
@@ -274,6 +466,40 @@ document.addEventListener('DOMContentLoaded', function() {
 
     html += '</div>';
     attributesContainer.innerHTML = html;
+  }
+
+  function renderSpecs(specs, sampleProduct) {
+    const existingFilter = <%= raw (template.description_filter || []).to_json %>;
+
+    let html = '<div class="mb-3 text-sm text-gray-600">';
+    if (sampleProduct) {
+      html += `Sample from: <strong>${sampleProduct.title}</strong> (${sampleProduct.sku})`;
+    }
+    html += '</div>';
+
+    html += '<div class="space-y-2">';
+
+    specs.forEach(spec => {
+      const isChecked = existingFilter.includes(spec);
+      const fieldId = `description_filter_${spec.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+      html += `
+        <div class="flex items-center">
+          <input type="checkbox"
+            name="olx_category_template[description_filter][]"
+            value="${spec}"
+            id="${fieldId}"
+            ${isChecked ? 'checked' : ''}
+            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+          <label for="${fieldId}" class="ml-2 text-sm text-gray-700">${spec}</label>
+        </div>
+      `;
+    });
+
+    html += '</div>';
+    html += '<input type="hidden" name="olx_category_template[description_filter][]" value="">';
+
+    specsContainer.innerHTML = html;
   }
 });
 </script>

@@ -483,26 +483,99 @@ class ScraperService
       next if url.blank?
 
       begin
-        # Convert thumbnail URLs to larger size (t_t100x100v2 -> t_t300x300v2)
-        larger_url = url.gsub('t_t100x100v2', 't_t300x300v2')
+        # Try to download the best available quality image
+        # Priority: use the provided size, or try larger sizes with fallback
+        downloaded_url = download_best_available_image(url, product, index)
 
-        logger.debug "    Downloading: #{larger_url.truncate(80)}"
-
-        io = URI.open(larger_url)
-        filename = "#{product.sku || product.id}_#{index}#{File.extname(larger_url)}"
-
-        product.images.attach(
-          io: io,
-          filename: filename,
-          content_type: io.content_type
-        )
-
-        success_count += 1
-        logger.debug "    ✓ Image #{index + 1}/#{image_urls.length} downloaded"
+        if downloaded_url
+          success_count += 1
+          logger.debug "    ✓ Image #{index + 1}/#{image_urls.length} downloaded"
+        else
+          logger.error "    ✗ Failed to download image #{index + 1}: No valid size found"
+        end
       rescue => e
         logger.error "    ✗ Failed to download image #{index + 1}: #{e.message}"
       end
     end
     logger.info "  ✓ Downloaded #{success_count}/#{image_urls.length} images"
+  end
+
+  ##
+  # Try to download the best available image quality
+  # Tries multiple sizes if the requested size fails (1200, 800, 600, 300)
+  #
+  # @param url [String] Original image URL
+  # @param product [Product] Product to attach image to
+  # @param index [Integer] Image index
+  # @return [String, nil] Downloaded URL or nil if failed
+  #
+  def self.download_best_available_image(url, product, index)
+    # If URL doesn't have a size transformation, try as-is first
+    unless url.match?(/t_t\d+x\d+v\d+/)
+      begin
+        logger.debug "    Trying original URL (no transformation): #{url.truncate(80)}"
+        io = URI.open(url)
+        attach_image(product, io, url, index)
+        return url
+      rescue => e
+        logger.debug "    Original URL failed: #{e.message}"
+      end
+    end
+
+    # Try different sizes in order of preference: current size, 1200, 800, 600, 300
+    sizes_to_try = []
+
+    # Extract current size if present
+    if url =~ /t_t(\d+)x(\d+)v\d+/
+      current_width = $1.to_i
+      current_height = $2.to_i
+
+      # If current size is >= 300, try it first
+      if current_width >= 300 && current_height >= 300
+        sizes_to_try << { url: url, label: "#{current_width}x#{current_height} (original)" }
+      end
+    end
+
+    # Add fallback sizes (only if not already in list)
+    [
+      { size: '1200x1200v1', label: '1200x1200' },
+      { size: '800x800v1', label: '800x800' },
+      { size: '600x600v1', label: '600x600' },
+      { size: '300x300v2', label: '300x300' }
+    ].each do |fallback|
+      test_url = url.gsub(/t_t\d+x\d+v\d+/, "t_t#{fallback[:size]}")
+      # Skip if we already have this URL in our list
+      next if sizes_to_try.any? { |s| s[:url] == test_url }
+      sizes_to_try << { url: test_url, label: fallback[:label] }
+    end
+
+    # Try each size until one succeeds
+    sizes_to_try.each do |size_option|
+      begin
+        logger.debug "    Trying #{size_option[:label]}: #{size_option[:url].truncate(80)}"
+        io = URI.open(size_option[:url])
+        attach_image(product, io, size_option[:url], index)
+        logger.debug "    ✓ Successfully downloaded #{size_option[:label]}"
+        return size_option[:url]
+      rescue OpenURI::HTTPError => e
+        logger.debug "    #{size_option[:label]} not available (#{e.message})"
+      rescue => e
+        logger.debug "    #{size_option[:label]} failed: #{e.message}"
+      end
+    end
+
+    nil
+  end
+
+  ##
+  # Attach downloaded image to product
+  #
+  def self.attach_image(product, io, url, index)
+    filename = "#{product.sku || product.id}_#{index}#{File.extname(url)}"
+    product.images.attach(
+      io: io,
+      filename: filename,
+      content_type: io.content_type
+    )
   end
 end

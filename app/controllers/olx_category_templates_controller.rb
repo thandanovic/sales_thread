@@ -26,6 +26,87 @@ class OlxCategoryTemplatesController < ApplicationController
     render json: { error: 'Category not found' }, status: :not_found
   end
 
+  def load_specs
+    # Get a sample product to extract available specs from
+    product = if params[:product_url].present?
+      # Option 1: Scrape from Intercars URL (requires credentials)
+      scrape_product_specs(params[:product_url])
+    elsif params[:product_id].present?
+      # Option 2: Use existing product as sample
+      @shop.products.find(params[:product_id])
+    else
+      # Option 3: Use any recent product with specs as sample
+      @shop.products.where.not(specs: nil).order(created_at: :desc).first
+    end
+
+    if product && product.specs.present?
+      specs_hash = JSON.parse(product.specs)
+      spec_keys = specs_hash.keys
+
+      render json: {
+        specs: spec_keys,
+        sample_product: {
+          title: product.title,
+          sku: product.sku
+        }
+      }
+    else
+      render json: { specs: [], message: 'No specs found. Import some products first.' }
+    end
+  rescue => e
+    render json: { error: e.message }, status: :unprocessable_entity
+  end
+
+  def load_placeholders
+    # Get a sample product to extract available placeholders from
+    product = if params[:product_id].present?
+      @shop.products.find(params[:product_id])
+    else
+      @shop.products.where.not(specs: nil).order(created_at: :desc).first
+    end
+
+    placeholders = {
+      basic: [
+        { name: 'brand', description: 'Product brand field', example: product&.brand || 'BOSCH' },
+        { name: 'title', description: 'Full product title', example: product&.title&.truncate(40) || 'Product Title' },
+        { name: 'sku', description: 'Product SKU/code', example: product&.sku || 'ABC123' },
+        { name: 'category', description: 'Category name', example: product&.category || 'Auto Parts' },
+        { name: 'price', description: 'Product price with currency', example: product ? "#{product.final_price} #{product.currency}" : '100.00 BAM' }
+      ],
+      specs: []
+    }
+
+    if product && product.specs.present?
+      specs_hash = JSON.parse(product.specs)
+
+      placeholders[:specs] = specs_hash.map do |key, value|
+        # Convert spec key to placeholder format (snake_case, no special chars)
+        placeholder_name = key.downcase
+          .gsub(/[čć]/i, 'c')
+          .gsub(/[žš]/i, 's')
+          .gsub(/[đ]/i, 'd')
+          .gsub(/\s+/, '_')
+          .gsub(/[^\w]/, '')
+
+        {
+          name: placeholder_name,
+          original_key: key,
+          description: key,
+          example: value.to_s.truncate(50)
+        }
+      end
+
+      placeholders[:sample_product] = {
+        title: product.title,
+        sku: product.sku
+      }
+    end
+
+    render json: placeholders
+  rescue => e
+    render json: { error: e.message, basic: [], specs: [] }, status: :unprocessable_entity
+  end
+
   def show
     @products_count = @template.products.count
 

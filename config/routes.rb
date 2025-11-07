@@ -37,6 +37,8 @@ Rails.application.routes.draw do
       resources :olx_category_templates do
         collection do
           get :load_attributes
+          get :load_specs
+          get :load_placeholders
         end
       end
     end

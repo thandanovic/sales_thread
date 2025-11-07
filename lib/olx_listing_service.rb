@@ -278,8 +278,9 @@ class OlxListingService
     payload[:available] = product.stock.to_i > 0 if product.respond_to?(:stock)
 
     # Add category-specific attributes
+    # Always include attributes field (OLX may require it even if empty for some categories)
     attributes = build_category_attributes
-    payload[:attributes] = attributes if attributes.any?
+    payload[:attributes] = attributes
 
     payload
   end
@@ -423,6 +424,13 @@ class OlxListingService
         # Resolve the value from mapping
         value = resolve_attribute_value(mapping)
         next if value.blank?
+
+        # Clean numeric values for number-type attributes
+        if attr_def.attribute_type == 'number' && value.is_a?(String)
+          # Extract just the numeric value (e.g., "77.0 Ah" -> "77")
+          numeric_match = value.match(/(\d+(?:\.\d+)?)/)
+          value = numeric_match[1].to_f.to_i.to_s if numeric_match
+        end
 
         # Replace existing attribute or add new one
         existing_index = attributes.find_index { |a| a[:id] == attr_def.external_id }
