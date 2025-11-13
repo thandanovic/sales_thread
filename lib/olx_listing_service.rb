@@ -261,7 +261,7 @@ class OlxListingService
     payload = {
       title: product.olx_title.presence || product.title,
       description: product.olx_description.presence || build_description,
-      price: product.final_price || product.price,
+      price: (product.final_price || product.price).to_f.round(0),
       category_id: @template.olx_category.external_id,
       city_id: @template.olx_location.external_id,
       listing_type: @template.default_listing_type || 'sell',

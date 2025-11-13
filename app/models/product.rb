@@ -356,6 +356,7 @@ class Product < ApplicationRecord
     # Calculate final_price = price * (1 + margin/100)
     base_price = price || 0.0
     margin_percentage = margin || 0.0
-    self.final_price = base_price * (1 + margin_percentage / 100.0)
+    # Always round to nearest whole number (no cents)
+    self.final_price = (base_price * (1 + margin_percentage / 100.0)).round(0)
   end
 end

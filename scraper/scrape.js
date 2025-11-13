@@ -259,11 +259,15 @@ async function scrapeProducts(username, password, productUrl) {
         log(`      [${scrapedCount + i + 1}/${MAX_PRODUCTS}] Processing: ${productData.title}`);
 
         try {
-          // Extract images by hovering over image icon (stay on listing page)
-          const images = await extractImagesFromProductCard(page, i);
+          // Extract images using the imageContainerIndex stored during product extraction
+          // This ensures we click on the exact same container that corresponds to this product
+          const images = await extractImagesFromProductCard(page, productData.imageContainerIndex);
           productData.images = images;
 
           log(`       ✓ Extracted ${images.length} images without leaving listing page`);
+
+          // Remove the temporary imageContainerIndex before saving
+          delete productData.imageContainerIndex;
 
           products.push(productData);
           scrapedCount++;
@@ -271,6 +275,10 @@ async function scrapeProducts(username, password, productUrl) {
           logError(`Failed to extract images for product ${i}`, error);
           // Still add product without images
           productData.images = [];
+
+          // Remove the temporary imageContainerIndex before saving
+          delete productData.imageContainerIndex;
+
           products.push(productData);
           scrapedCount++;
         }
@@ -357,18 +365,22 @@ async function scrapeProducts(username, password, productUrl) {
 
 /**
  * Extract all product data from listing page (without visiting detail pages)
+ * Also tracks which image container index corresponds to each product for accurate image extraction
  */
 async function extractProductsFromListingPage(page) {
   log('   Extracting products from listing page...');
 
   const products = await page.evaluate(() => {
     const productLinks = document.querySelectorAll('[data-testid="productIndexLink"]');
-    const priceElements = document.querySelectorAll('[data-testid="wholesalePrice-new"], [data-test="wholesalePrice-new"]');
+    // Get ALL .product-image containers as an array for index lookup
+    const allImageContainers = Array.from(document.querySelectorAll('.product-image'));
 
-    console.log(`[EXTRACTION] Found ${productLinks.length} product links and ${priceElements.length} price elements`);
+    console.log(`[EXTRACTION] Found ${productLinks.length} product links and ${allImageContainers.length} image containers`);
 
     const extracted = [];
-    productLinks.forEach((link, index) => {
+    let realProductIndex = 0; // Track index of real products (excluding pagination)
+
+    productLinks.forEach((link, linkIndex) => {
       const title = link.getAttribute('title') || link.textContent.trim();
       const url = link.href;
       const sku = link.getAttribute('data-towkod');
@@ -385,47 +397,53 @@ async function extractProductsFromListingPage(page) {
         return;
       }
 
-      console.log(`[EXTRACTION] Processing product ${index}: ${title} (${sku})`);
+      console.log(`[EXTRACTION] Processing product ${linkIndex} (real product index: ${realProductIndex}): ${title} (${sku})`);
 
       let price = null;
       let currency = 'BAM';
       let branchAvailability = null;
       let quantity = null;
 
-      // Extract price from price element
-      const priceEl = priceElements[index];
-      if (priceEl) {
-        const dataPrice = priceEl.getAttribute('data-clk-listing-item-wholesale-price');
-        if (dataPrice) {
-          price = parseFloat(dataPrice);
-        } else {
-          const priceText = priceEl.textContent.trim();
-          const priceMatch = priceText.match(/([\d\s,.]+)\s*(BAM|EUR|KM)?/);
-          if (priceMatch) {
-            const cleanPrice = priceMatch[1].replace(/\s/g, '').replace(',', '.');
-            price = parseFloat(cleanPrice);
-            currency = priceMatch[2] || 'BAM';
-          }
-        }
-      }
-
-      // Extract branch availability and quantity
+      // CRITICAL FIX: Extract price by traversing DOM from the product link
+      // This ensures we get the price for THIS specific product, not from a misaligned array
       let parent = link;
       for (let i = 0; i < 10; i++) {
         parent = parent.parentElement;
         if (!parent) break;
 
+        // Look for price element within this product's parent container
+        const priceEl = parent.querySelector('[data-testid="wholesalePrice-new"], [data-test="wholesalePrice-new"]');
+        if (priceEl) {
+          const dataPrice = priceEl.getAttribute('data-clk-listing-item-wholesale-price');
+          if (dataPrice) {
+            price = parseFloat(dataPrice);
+            console.log(`[EXTRACTION] Found price from data attribute: ${price}`);
+          } else {
+            const priceText = priceEl.textContent.trim();
+            const priceMatch = priceText.match(/([\d\s,.]+)\s*(BAM|EUR|KM)?/);
+            if (priceMatch) {
+              const cleanPrice = priceMatch[1].replace(/\s/g, '').replace(',', '.');
+              price = parseFloat(cleanPrice);
+              currency = priceMatch[2] || 'BAM';
+              console.log(`[EXTRACTION] Found price from text: ${price} ${currency}`);
+            }
+          }
+        }
+
+        // Extract branch availability
         const stockNameEl = parent.querySelector('[data-testid="stockName"], [data-test="stockName"]');
         if (stockNameEl) {
           branchAvailability = stockNameEl.getAttribute('data-clk-listing-item-availability-branch') || stockNameEl.textContent.trim();
         }
 
+        // Extract quantity
         const stockQuantityEl = parent.querySelector('[data-testid="stockQuantity-new"], [data-test="stockQuantity-new"]');
         if (stockQuantityEl) {
           quantity = stockQuantityEl.getAttribute('data-clk-listing-item-availability-amount') || stockQuantityEl.textContent.trim();
         }
 
-        if (branchAvailability && quantity) break;
+        // Stop if we found all the data we need
+        if (price && branchAvailability && quantity) break;
       }
 
       // Try to extract brand from title (format: "SIZE BRAND CODE")
@@ -449,7 +467,7 @@ async function extractProductsFromListingPage(page) {
 
         const attrsContainer = productCard.querySelector('[data-testid="productAttributes"]');
         if (attrsContainer) {
-          console.log(`[EXTRACTION] Found productAttributes for product ${index}`);
+          console.log(`[EXTRACTION] Found productAttributes for product ${realProductIndex}`);
 
           // Get the full text content and split by | to get attribute pairs
           const fullText = attrsContainer.textContent.trim();
@@ -485,10 +503,10 @@ async function extractProductsFromListingPage(page) {
       }
 
       if (!description) {
-        console.log(`[EXTRACTION] ⚠ No productAttributes found for product ${index}`);
+        console.log(`[EXTRACTION] ⚠ No productAttributes found for product ${realProductIndex}`);
       }
 
-      console.log(`[EXTRACTION] Product ${index} fields:`);
+      console.log(`[EXTRACTION] Product ${realProductIndex} fields:`);
       console.log(`[EXTRACTION]   - Title: ${title}`);
       console.log(`[EXTRACTION]   - SKU: ${sku}`);
       console.log(`[EXTRACTION]   - Brand: ${brand || 'NOT FOUND'}`);
@@ -499,6 +517,35 @@ async function extractProductsFromListingPage(page) {
       console.log(`[EXTRACTION]   - Specs: ${Object.keys(specs).length} attributes`);
 
       if (url && (title || sku)) {
+        // CRITICAL FIX: Find the actual .product-image container that belongs to THIS product
+        // by traversing up from the link to find the parent product card
+        let imageContainerIndex = -1;
+        let parent = link;
+
+        // Traverse up the DOM to find the product card container
+        for (let i = 0; i < 15; i++) {
+          parent = parent.parentElement;
+          if (!parent) break;
+
+          // Look for .product-image within this parent
+          const imageContainer = parent.querySelector('.product-image');
+          if (imageContainer) {
+            // Find the index of this container in the global array
+            imageContainerIndex = allImageContainers.indexOf(imageContainer);
+            if (imageContainerIndex >= 0) {
+              console.log(`[EXTRACTION] Found image container at global index ${imageContainerIndex} for product link ${linkIndex} (real product ${realProductIndex})`);
+              break;
+            }
+          }
+        }
+
+        if (imageContainerIndex === -1) {
+          console.log(`[EXTRACTION] ⚠ WARNING: Product ${realProductIndex} has NO image container (product without images)`);
+          // DO NOT fallback to any index - this product genuinely has no images
+          // The image extraction will handle this by returning empty array
+          console.log(`[EXTRACTION] Will skip image extraction for this product to prevent mismatch`);
+        }
+
         const productData = {
           source: 'intercars',
           scraped_at: new Date().toISOString(),
@@ -516,12 +563,19 @@ async function extractProductsFromListingPage(page) {
           images: [],
           // Description and specs extracted from productAttributes
           description: description,
-          specs: Object.keys(specs).length > 0 ? specs : null
+          specs: Object.keys(specs).length > 0 ? specs : null,
+          // IMPORTANT: Store the ACTUAL index of the image container in the global array
+          // This ensures we click on the exact right container
+          // -1 means this product has no image container (will skip image extraction)
+          imageContainerIndex: imageContainerIndex
         };
         extracted.push(productData);
-        console.log(`[EXTRACTION] ✓ Added product ${index}`);
+        console.log(`[EXTRACTION] ✓ Added product ${realProductIndex} (link ${linkIndex}, image container index: ${imageContainerIndex})`);
+
+        // Increment the real product index for the next product
+        realProductIndex++;
       } else {
-        console.log(`[EXTRACTION] ⚠ Skipped product ${index} - missing URL or title/SKU`);
+        console.log(`[EXTRACTION] ⚠ Skipped product link ${linkIndex} - missing URL or title/SKU`);
       }
     });
 
@@ -534,38 +588,108 @@ async function extractProductsFromListingPage(page) {
 }
 
 /**
- * Extract images by hovering over product image icon
+ * Extract images by clicking on product image to open modal
  * Stays on listing page - no navigation needed
+ *
+ * @param page - Playwright page object
+ * @param containerIndex - The exact DOM index of the image container (from productLinks iteration)
  */
-async function extractImagesFromProductCard(page, productIndex) {
+async function extractImagesFromProductCard(page, containerIndex) {
   try {
     log(`       [IMG] ========================================`);
-    log(`       [IMG] Extracting images for product ${productIndex}...`);
+    log(`       [IMG] Extracting images using container index ${containerIndex}...`);
 
-    // Wait a bit for any previous modal to close
-    log(`       [IMG] Waiting for any previous modal to close...`);
-    await page.waitForTimeout(1000);
-
-    // Find all product image containers
-    log(`       [IMG] Looking for .product-image containers...`);
-    const imageContainers = await page.locator('.product-image').all();
-    log(`       [IMG] Found ${imageContainers.length} image containers on page`);
-
-    if (productIndex >= imageContainers.length) {
-      logError(`[IMG] ⚠ Product index ${productIndex} out of range (found ${imageContainers.length} containers)`, null);
+    // CRITICAL: If containerIndex is -1, this product has NO image container
+    // This happens when products don't have images at all
+    if (containerIndex === -1) {
+      log(`       [IMG] ⚠ Container index is -1: This product has NO images (skipping extraction)`);
+      log(`       [IMG] ========================================`);
       return [];
     }
 
-    const container = imageContainers[productIndex];
-    log(`       [IMG] Using container at index ${productIndex}`);
+    // CRITICAL: Ensure no modal is open before clicking on this product
+    // This prevents images from previous modals being attached to wrong products
+    log(`       [IMG] Ensuring no modal is currently open...`);
 
-    // Find the magnifying glass icon trigger
-    log(`       [IMG] Looking for gallery trigger (magnifying glass icon)...`);
-    const galleryTrigger = container.locator('svg.js-gallery-tooltip-modal-trigger-H156TY');
-    const triggerCount = await galleryTrigger.count();
-    log(`       [IMG] Gallery trigger count: ${triggerCount}`);
+    // Check for any existing modal portal
+    const existingModalCount = await page.locator('.ReactModalPortal').count();
+    if (existingModalCount > 0) {
+      log(`       [IMG] ⚠ Found existing modal portal, forcefully closing it...`);
 
-    // Try to click on the product image to open modal (works for all products)
+      // Try to close it
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1000);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1000);
+
+      // Verify it's gone
+      const stillExists = await page.locator('.ReactModalPortal').count();
+      if (stillExists > 0) {
+        log(`       [IMG] ⚠ Modal portal still exists after ESC! Trying harder...`);
+        await page.mouse.click(10, 10); // Click outside
+        await page.waitForTimeout(2000);
+
+        const finalCheck = await page.locator('.ReactModalPortal').count();
+        if (finalCheck > 0) {
+          log(`       [IMG] ✗ ERROR: Cannot close existing modal! Skipping this product to avoid image mismatch.`);
+          return [];
+        }
+      }
+
+      log(`       [IMG] ✓ Existing modal closed successfully`);
+    } else {
+      log(`       [IMG] ✓ No existing modal found, safe to proceed`);
+    }
+
+    // Additional wait to ensure DOM is stable
+    await page.waitForTimeout(1000);
+
+    // Get all image containers in DOM order - MUST use same selector as product extraction
+    // to ensure indices match perfectly
+    log(`       [IMG] Looking for image containers...`);
+    const allImageContainers = await page.locator('.product-image').all();
+    log(`       [IMG] Found ${allImageContainers.length} total image containers on page`);
+
+    // Use the EXACT index that was stored during product extraction
+    // This ensures we're clicking on the image container that corresponds to the same DOM position
+    if (containerIndex < 0 || containerIndex >= allImageContainers.length) {
+      logError(`[IMG] ⚠ Container index ${containerIndex} is invalid (found ${allImageContainers.length} containers)`, null);
+      log(`       [IMG] This product will have no images to prevent mismatch`);
+      log(`       [IMG] ========================================`);
+      return [];
+    }
+
+    const container = allImageContainers[containerIndex];
+    log(`       [IMG] Using image container at DOM index ${containerIndex}`);
+
+    // Check if this container has a real image or just an SVG placeholder
+    // Products without images show an SVG placeholder (no-image icon)
+    log(`       [IMG] Checking if container has real images or just SVG placeholder...`);
+    const hasRealImage = await container.evaluate((el) => {
+      // Check if there's an <img> element (real product image)
+      const imgElement = el.querySelector('img');
+      if (imgElement) {
+        return true;
+      }
+
+      // If only SVG exists, it's a placeholder for "no image available"
+      const svgElement = el.querySelector('svg');
+      if (svgElement && !imgElement) {
+        console.log('[IMG CHECK] Only SVG placeholder found, no real images');
+        return false;
+      }
+
+      return false;
+    });
+
+    if (!hasRealImage) {
+      log(`       [IMG] ⚠ Product has no images (SVG placeholder only), skipping image extraction`);
+      return [];
+    }
+
+    log(`       [IMG] ✓ Container has real images, proceeding with extraction`);
+
+    // Try to click on the product image to open modal
     log(`       [IMG] Looking for product image to click...`);
 
     try {
@@ -585,10 +709,18 @@ async function extractImagesFromProductCard(page, productIndex) {
       log(`       [IMG] CLICKING on product image to open modal...`);
       await productImage.click();
 
-      log(`       [IMG] Waiting 4 seconds for modal to appear...`);
-      await page.waitForTimeout(4000);
+      log(`       [IMG] Waiting 5 seconds for modal to appear...`);
+      await page.waitForTimeout(5000);
 
-      log(`       [IMG] ✓ Modal should be visible now`);
+      // CRITICAL: Verify that a modal actually appeared after clicking
+      const modalAppearedCount = await page.locator('.ReactModalPortal').count();
+      if (modalAppearedCount === 0) {
+        log(`       [IMG] ⚠ No modal appeared after clicking! This product likely has no images.`);
+        log(`       [IMG] Skipping image extraction for this product.`);
+        return [];
+      }
+
+      log(`       [IMG] ✓ Modal appeared after clicking`);
     } catch (err) {
       logError(`[IMG] Error clicking on product image`, err);
       return [];
@@ -611,6 +743,12 @@ async function extractImagesFromProductCard(page, productIndex) {
       // Get all swiper slides in the modal (each slide = one image)
       const slides = modalPortal.querySelectorAll('.swiper-slide');
       console.log(`[IMG MODAL] Found ${slides.length} slides in carousel`);
+
+      // If no slides, this modal has no images
+      if (slides.length === 0) {
+        console.log('[IMG MODAL] ⚠ Modal has no slides! This product has no images.');
+        return [];
+      }
 
       // Extract image from each slide
       slides.forEach((slide, idx) => {
@@ -661,13 +799,19 @@ async function extractImagesFromProductCard(page, productIndex) {
 
     log(`       [IMG] ========================================`);
     log(`       [IMG] RESULT: Extracted ${modalImages.length} product images from modal`);
-    modalImages.forEach((img, idx) => {
-      const filename = img.substring(img.lastIndexOf('/') + 1);
-      log(`       [IMG]   ${idx + 1}. ${filename}`);
-    });
+
+    if (modalImages.length === 0) {
+      log(`       [IMG] ⚠ WARNING: No images extracted! This product will have no images.`);
+    } else {
+      modalImages.forEach((img, idx) => {
+        const filename = img.substring(img.lastIndexOf('/') + 1);
+        log(`       [IMG]   ${idx + 1}. ${filename}`);
+      });
+    }
+
     log(`       [IMG] ========================================`);
 
-    // Close modal before moving to next product
+    // Close modal before moving to next product - CRITICAL for preventing image mismatch
     try {
       log(`       [IMG] Attempting to close modal...`);
 
@@ -675,12 +819,12 @@ async function extractImagesFromProductCard(page, productIndex) {
       await page.keyboard.press('Escape');
       await page.waitForTimeout(1000);
       await page.keyboard.press('Escape');
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(1000);
 
-      // Check if modal is gone
-      const modalStillExists = await page.locator('.react-transform-component').count();
-      if (modalStillExists > 0) {
-        log(`       [IMG] ⚠ Modal still exists after ESC, trying close button...`);
+      // Check if modal portal is gone (this is the key check)
+      const modalPortalStillExists = await page.locator('.ReactModalPortal').count();
+      if (modalPortalStillExists > 0) {
+        log(`       [IMG] ⚠ Modal portal still exists after ESC, trying close button...`);
 
         // Try clicking close button
         const closeButton = page.locator('button[aria-label*="close"], button[aria-label*="Close"], button[data-testid*="close"], .close-button, button.close').first();
@@ -688,25 +832,30 @@ async function extractImagesFromProductCard(page, productIndex) {
         if (closeButtonCount > 0) {
           log(`       [IMG] Found close button, clicking...`);
           await closeButton.click();
-          await page.waitForTimeout(1000);
+          await page.waitForTimeout(1500);
         } else {
           // Click outside modal as last resort
           log(`       [IMG] No close button, clicking outside modal...`);
           await page.mouse.click(10, 10);
-          await page.waitForTimeout(1000);
+          await page.waitForTimeout(1500);
         }
       }
 
-      // Final check
-      const modalFinalCheck = await page.locator('.react-transform-component').count();
+      // Final check - verify the modal portal is completely gone
+      const modalFinalCheck = await page.locator('.ReactModalPortal').count();
       if (modalFinalCheck > 0) {
-        log(`       [IMG] ⚠ Modal still visible after close attempts!`);
+        log(`       [IMG] ⚠⚠⚠ CRITICAL WARNING: Modal portal still visible after close attempts!`);
+        log(`       [IMG] This may cause image mismatch for the next product!`);
+        // Extra aggressive close attempt
+        await page.keyboard.press('Escape');
+        await page.mouse.click(10, 10);
+        await page.waitForTimeout(2000);
       } else {
         log(`       [IMG] ✓ Modal closed successfully`);
       }
 
-      // Extra wait to ensure DOM is stable before next product
-      await page.waitForTimeout(1000);
+      // Extra wait to ensure DOM is completely stable before next product
+      await page.waitForTimeout(1500);
     } catch (err) {
       logError(`[IMG] Error closing modal`, err);
     }
