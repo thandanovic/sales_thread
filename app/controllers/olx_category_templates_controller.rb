@@ -10,6 +10,29 @@ class OlxCategoryTemplatesController < ApplicationController
 
   def load_attributes
     category = OlxCategory.find(params[:category_id])
+
+    # If no attributes in DB, fetch from OLX API and save
+    if category.olx_category_attributes.empty?
+      Rails.logger.info "[OLX Templates] Fetching attributes for category #{category.external_id} from API"
+      response = OlxApiService.get("/categories/#{category.external_id}/attributes", @shop)
+
+      # Save attributes to database
+      response["data"].each do |attr_data|
+        OlxCategoryAttribute.find_or_create_by(
+          olx_category: category,
+          external_id: attr_data["id"]
+        ) do |attr|
+          attr.name = attr_data["name"]
+          attr.attribute_type = attr_data["type"]
+          attr.input_type = attr_data["input_type"]
+          attr.required = attr_data["required"]
+          attr.options = attr_data["options"]
+        end
+      end
+
+      Rails.logger.info "[OLX Templates] Saved #{category.olx_category_attributes.reload.count} attributes"
+    end
+
     attributes = category.olx_category_attributes.map do |attr|
       {
         name: attr.name,
@@ -24,6 +47,9 @@ class OlxCategoryTemplatesController < ApplicationController
     render json: { attributes: attributes }
   rescue ActiveRecord::RecordNotFound
     render json: { error: 'Category not found' }, status: :not_found
+  rescue StandardError => e
+    Rails.logger.error "[OLX Templates] Error loading attributes: #{e.message}"
+    render json: { error: "Failed to load attributes: #{e.message}" }, status: :unprocessable_entity
   end
 
   def load_specs

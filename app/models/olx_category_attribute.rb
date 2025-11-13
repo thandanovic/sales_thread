@@ -16,7 +16,14 @@ class OlxCategoryAttribute < ApplicationRecord
   # @return [Array, nil] Array of possible values or nil
   #
   def possible_values
-    options&.dig('values')
+    # Options can be either a Hash (with 'values' key) or an Array
+    if options.is_a?(Hash)
+      options.dig('values')
+    elsif options.is_a?(Array)
+      options
+    else
+      nil
+    end
   end
 
   ##
@@ -34,6 +41,11 @@ class OlxCategoryAttribute < ApplicationRecord
   # @return [String]
   #
   def display_label
-    options&.dig('label') || name.titleize
+    # Options can be either a Hash (with 'label' key) or an Array
+    if options.is_a?(Hash)
+      options.dig('label') || name.titleize
+    else
+      name.titleize
+    end
   end
 end
