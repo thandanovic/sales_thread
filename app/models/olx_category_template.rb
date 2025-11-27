@@ -2,13 +2,12 @@ class OlxCategoryTemplate < ApplicationRecord
   # Associations
   belongs_to :shop
   belongs_to :olx_category
-  belongs_to :olx_location
+  belongs_to :olx_location, optional: true
   has_many :products, foreign_key: 'olx_category_template_id', dependent: :nullify
 
   # Validations
   validates :name, presence: true
   validates :olx_category_id, presence: true
-  validates :olx_location_id, presence: true
 
   # Scopes
   scope :by_listing_type, ->(type) { where(default_listing_type: type) }
@@ -20,7 +19,11 @@ class OlxCategoryTemplate < ApplicationRecord
   # @return [String]
   #
   def display_name
-    "#{name} (#{olx_category.name} - #{olx_location.name})"
+    if olx_location
+      "#{name} (#{olx_category.name} - #{olx_location.name})"
+    else
+      "#{name} (#{olx_category.name})"
+    end
   end
 
   ##

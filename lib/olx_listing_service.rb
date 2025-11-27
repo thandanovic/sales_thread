@@ -233,15 +233,12 @@ class OlxListingService
       Rails.logger.error "[OLX Listing] Validation failed: No category template assigned to product #{product.id}"
     end
 
-    if @template && @template.olx_location.nil?
-      errors << 'Category template must have location'
-      Rails.logger.error "[OLX Listing] Validation failed: Template #{@template.id} missing location"
-    end
-
     if @template && @template.olx_category.nil?
       errors << 'Category template must have category'
       Rails.logger.error "[OLX Listing] Validation failed: Template #{@template.id} missing category"
     end
+
+    # Note: olx_location is optional for OLX.ba since it uses GPS coordinates
 
     if errors.any?
       raise ArgumentError, errors.join(', ')
@@ -263,12 +260,40 @@ class OlxListingService
       description: product.olx_description.presence || build_description,
       price: (product.final_price || product.price).to_f.round(0),
       category_id: @template.olx_category.external_id,
-      city_id: @template.olx_location.external_id,
       listing_type: @template.default_listing_type || 'sell',
       state: @template.default_state || 'new'
     }
 
-    Rails.logger.info "[OLX Listing] Building payload with category_id: #{@template.olx_category.external_id}, city_id: #{@template.olx_location.external_id}"
+    # Add location: Use city_id if available, otherwise use GPS coordinates
+    if @template.olx_location.present?
+      payload[:city_id] = @template.olx_location.external_id
+      Rails.logger.info "[OLX Listing] Building payload with category_id: #{@template.olx_category.external_id}, city_id: #{@template.olx_location.external_id}"
+    else
+      # OLX.ba uses GPS coordinates instead of city IDs
+      # Try to get coordinates from synced listing metadata or use default Sarajevo coordinates
+      location_data = nil
+
+      if product.olx_listing&.metadata.present?
+        # Check for location in synced listing metadata
+        location_data = product.olx_listing.metadata['location']
+      end
+
+      if location_data && location_data['lat'] && location_data['lon']
+        payload[:location] = {
+          lat: location_data['lat'],
+          lon: location_data['lon']
+        }
+        Rails.logger.info "[OLX Listing] Building payload with category_id: #{@template.olx_category.external_id}, GPS: #{location_data['lat']},#{location_data['lon']}"
+      else
+        # Default coordinates for Sarajevo, Bosnia
+        payload[:location] = {
+          lat: 43.8563,
+          lon: 18.4131
+        }
+        Rails.logger.info "[OLX Listing] Building payload with category_id: #{@template.olx_category.external_id}, GPS: default Sarajevo"
+      end
+    end
+
     Rails.logger.info "[OLX Listing] Using title: #{payload[:title].truncate(50)}"
 
     # Add optional fields
@@ -409,7 +434,30 @@ class OlxListingService
     attributes = []
     category_attributes = @template.olx_category.olx_category_attributes
 
-    # Auto-extract tyre attributes if category is "Gume za automobile" (940)
+    # For products synced from OLX, use ONLY the original attributes from metadata
+    # Do NOT generate or apply template mappings - just push back what was synced
+    if product.source == 'olx' && product.olx_listing&.metadata.present?
+      # Attributes are stored in metadata['data']['attributes'] from the API response
+      original_attrs = product.olx_listing.metadata.dig('data', 'attributes') ||
+                       product.olx_listing.metadata['attributes'] || []
+
+      original_attrs.each do |attr|
+        attr_id = attr['id']
+        attr_value = attr['value']
+
+        if attr_id.present? && attr_value.present?
+          attributes << {
+            id: attr_id,
+            value: attr_value
+          }
+        end
+      end
+
+      Rails.logger.info "[OLX Listing] Using #{attributes.length} original attributes from synced product (no generation/mapping)"
+      return attributes  # Return immediately - don't process templates
+    end
+
+    # For non-OLX products: Auto-extract tyre attributes if category is "Gume za automobile" (940)
     if @template.olx_category.external_id == 940
       attributes = build_tyre_attributes(category_attributes)
     end

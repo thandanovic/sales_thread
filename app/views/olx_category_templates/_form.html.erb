@@ -74,12 +74,12 @@
         </div>
 
         <div>
-          <%= form.label :olx_location_id, "OLX Location", class: "block text-sm font-medium text-gray-700" %>
+          <%= form.label :olx_location_id, "OLX Location (Optional)", class: "block text-sm font-medium text-gray-700" %>
           <%= form.select :olx_location_id,
               options_from_collection_for_select(@locations, :id, :name, template.olx_location_id),
-              { prompt: "Select a location" },
+              { prompt: "Select a location (or leave empty for GPS)" },
               { class: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" } %>
-          <p class="mt-1 text-sm text-gray-500">Default location for listings</p>
+          <p class="mt-1 text-sm text-gray-500">Optional - OLX.ba uses GPS coordinates by default</p>
         </div>
 
         <div class="grid grid-cols-2 gap-4">

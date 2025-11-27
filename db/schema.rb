@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_12_172512) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_13_213303) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -116,7 +116,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_12_172512) do
     t.integer "shop_id", null: false
     t.string "name"
     t.integer "olx_category_id", null: false
-    t.integer "olx_location_id", null: false
+    t.integer "olx_location_id"
     t.string "default_listing_type"
     t.string "default_state"
     t.json "attribute_mappings"
@@ -139,6 +139,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_12_172512) do
     t.json "metadata"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "synced_at"
     t.index ["external_listing_id"], name: "index_olx_listings_on_external_listing_id", unique: true
     t.index ["product_id"], name: "index_olx_listings_on_product_id"
     t.index ["shop_id"], name: "index_olx_listings_on_shop_id"
@@ -188,6 +189,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_12_172512) do
     t.json "image_urls"
     t.string "olx_title"
     t.text "olx_description"
+    t.string "import_source", default: "manual"
+    t.index ["import_source"], name: "index_products_on_import_source"
     t.index ["olx_category_template_id"], name: "index_products_on_olx_category_template_id"
     t.index ["shop_id"], name: "index_products_on_shop_id"
   end
@@ -201,6 +204,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_12_172512) do
     t.string "olx_password"
     t.text "olx_access_token"
     t.datetime "olx_token_expires_at"
+    t.string "olx_user_id"
+    t.string "olx_user_name"
   end
 
   create_table "users", force: :cascade do |t|

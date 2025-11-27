@@ -226,6 +226,21 @@ async function scrapeProducts(username, password, productUrl) {
       const listingPageUrl = page.url();
       console.log(`   📍 Listing page URL: ${listingPageUrl}`);
 
+      // CRITICAL FIX: Scroll to bottom of page to trigger lazy-loaded price elements
+      // Products below the fold don't have price elements rendered until scrolled into view
+      console.log('   📜 Scrolling to bottom to load all price elements...');
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+      await page.waitForTimeout(2000); // Wait for lazy-loaded elements to render
+
+      // Scroll back to top for consistent extraction
+      await page.evaluate(() => {
+        window.scrollTo(0, 0);
+      });
+      await page.waitForTimeout(1000);
+      console.log('   ✓ All products should now be fully loaded');
+
       // Extract products directly from listing page (no detail page visits)
       const productCards = await extractProductsFromListingPage(page);
 

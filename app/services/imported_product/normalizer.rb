@@ -38,6 +38,7 @@ module ImportedProduct
       attrs = {
         shop: @shop,
         source: @imported_product.source,
+        import_source: 'csv',
         title: @raw_data['title'],
         sku: @raw_data['sku'],
         brand: @raw_data['brand'],

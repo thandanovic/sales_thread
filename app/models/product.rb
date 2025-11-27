@@ -12,7 +12,7 @@ class Product < ApplicationRecord
   has_many :imported_products, dependent: :destroy
 
   # Enums
-  enum :source, { csv: 'csv', intercars: 'intercars' }, validate: true
+  enum :source, { csv: 'csv', intercars: 'intercars', olx: 'olx' }, validate: true
 
   # Validations
   validates :title, presence: true
@@ -221,9 +221,15 @@ class Product < ApplicationRecord
   ##
   # Auto-populate olx_title and olx_description before publishing
   # This should be called before creating/updating OLX listings
-  # Always regenerates from templates to ensure latest data
+  # Only generates for non-OLX products (CSV/Intercars imports) when template is attached
   #
   def auto_populate_olx_fields
+    # Skip auto-generation for products synced from OLX - they already have their original content
+    return if source == 'olx'
+
+    # Only generate if template is attached
+    return unless olx_category_template.present?
+
     self.olx_title = generate_olx_title
     self.olx_description = generate_olx_description
   end

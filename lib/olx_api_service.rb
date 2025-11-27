@@ -53,13 +53,16 @@ class OlxApiService
     data = JSON.parse(response.body)
 
     if response.code.to_i == 200 && data['token']
-      # Store token and expiration
+      # Store token, expiration, and user info
+      user_data = data['user'] || {}
       shop.update!(
         olx_access_token: data['token'],
-        olx_token_expires_at: 30.days.from_now # OLX tokens typically expire after 30 days
+        olx_token_expires_at: 30.days.from_now, # OLX tokens typically expire after 30 days
+        olx_user_id: user_data['id']&.to_s,
+        olx_user_name: user_data['username']
       )
 
-      Rails.logger.info "[OLX API] Successfully authenticated for shop #{shop.id}"
+      Rails.logger.info "[OLX API] Successfully authenticated for shop #{shop.id} (user: #{user_data['username']})"
       { success: true, token: data['token'], user: data['user'] }
     else
       error_message = data['message'] || data['error'] || 'Authentication failed'

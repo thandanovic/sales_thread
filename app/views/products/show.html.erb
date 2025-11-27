@@ -115,7 +115,7 @@
           </div>
           <div class="flex items-center justify-between">
             <span class="text-gray-600">Location:</span>
-            <span class="text-gray-900"><%= @product.olx_category_template.olx_location.name %></span>
+            <span class="text-gray-900"><%= @product.olx_category_template.olx_location&.name || 'GPS Coordinates' %></span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-gray-600">Listing Type:</span>

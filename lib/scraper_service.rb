@@ -420,6 +420,7 @@ class ScraperService
       description: product_data['description'],
       specs: product_data['specs']&.to_json,
       image_urls: product_data['images'],
+      import_source: 'intercars',
       refreshed_at: Time.current
     }
 

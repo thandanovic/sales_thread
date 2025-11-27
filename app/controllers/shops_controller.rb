@@ -1,7 +1,7 @@
 class ShopsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_shop, only: [:show, :edit, :update, :destroy, :test_olx_connection]
-  before_action :authorize_shop, only: [:edit, :update, :destroy, :test_olx_connection]
+  before_action :set_shop, only: [:show, :edit, :update, :destroy, :test_olx_connection, :sync_from_olx, :setup_olx_data]
+  before_action :authorize_shop, only: [:edit, :update, :destroy, :test_olx_connection, :sync_from_olx, :setup_olx_data]
 
   def index
     @shops = current_user.shops.order(created_at: :desc)
@@ -72,6 +72,117 @@ class ShopsController < ApplicationController
         message: "Error: #{e.message}"
       }, status: :unprocessable_entity
     end
+  end
+
+  def sync_from_olx
+    Rails.logger.info "[Shops] Starting OLX sync for shop #{@shop.id}"
+
+    begin
+      # By default, only sync 'active' listings. To sync all statuses, pass status_filter: nil
+      # To sync specific categories, pass category_ids: [18, 31, ...]
+      # skip_existing: true means only import new products, don't update existing ones
+      sync_options = {
+        limit: params[:limit]&.to_i || 200,
+        status_filter: params[:status_filter]&.split(',') || ['active'],
+        skip_existing: params[:skip_existing] != 'false' # Default to true, unless explicitly set to 'false'
+      }
+
+      result = OlxSyncService.new(@shop).sync_products(**sync_options)
+
+      if result[:success]
+        total_successful = result[:imported] + result[:updated]
+        total_unsuccessful = result[:skipped] + result[:failed]
+
+        if total_successful > 0
+          # Some products were successfully synced
+          message_parts = ["Successfully synced from OLX:"]
+          message_parts << "#{result[:imported]} new" if result[:imported] > 0
+          message_parts << "#{result[:updated]} updated" if result[:updated] > 0
+
+          if total_unsuccessful > 0
+            unsuccessful_parts = []
+            unsuccessful_parts << "#{result[:skipped]} skipped" if result[:skipped] > 0
+            unsuccessful_parts << "#{result[:failed]} failed" if result[:failed] > 0
+            message_parts << "(#{unsuccessful_parts.join(', ')})"
+          end
+
+          flash[:notice] = message_parts.join(", ") + "."
+        elsif result[:skipped] > 0 && result[:failed] == 0
+          # Everything was skipped (missing categories/locations)
+          flash[:alert] = "Could not sync #{result[:skipped]} product(s): Categories or locations missing from database. Please fetch OLX categories and locations first."
+        elsif result[:failed] > 0
+          # Everything failed with errors
+          flash[:alert] = "Sync completed with errors: #{result[:failed]} failed, #{result[:skipped]} skipped. Check logs for details."
+        else
+          flash[:notice] = "No products to sync."
+        end
+
+        Rails.logger.info "[Shops] OLX sync completed: #{result.inspect}"
+      else
+        flash[:alert] = "Sync failed: #{result[:error]}"
+        Rails.logger.error "[Shops] OLX sync failed: #{result[:error]}"
+      end
+    rescue OlxApiService::AuthenticationError => e
+      flash[:alert] = "Authentication error: #{e.message}. Please check your OLX credentials."
+      Rails.logger.error "[Shops] OLX sync authentication error: #{e.message}"
+    rescue => e
+      flash[:alert] = "Sync error: #{e.message}"
+      Rails.logger.error "[Shops] OLX sync error: #{e.class} - #{e.message}"
+      Rails.logger.error e.backtrace.first(5).join("\n")
+    end
+
+    redirect_to @shop
+  end
+
+  def setup_olx_data
+    Rails.logger.info "[Shops] Starting OLX setup for shop #{@shop.id}"
+
+    begin
+      result = OlxSetupService.new(@shop).setup_all
+
+      if result[:success]
+        categories = result[:categories]
+        attributes = result[:attributes]
+        locations = result[:locations]
+
+        if categories[:total] > 0
+          message = "Successfully set up OLX data: "
+          parts = []
+          parts << "#{categories[:created]} categories created" if categories[:created] > 0
+          parts << "#{categories[:updated]} categories updated" if categories[:updated] > 0
+          parts << "#{attributes[:total]} attributes" if attributes && attributes[:total] > 0
+          parts << "#{locations[:created]} cities created" if locations[:created] > 0
+          parts << "#{locations[:updated]} cities updated" if locations[:updated] > 0
+
+          if parts.any?
+            message += parts.join(", ") + "."
+          else
+            cat_msg = "#{categories[:total]} categories"
+            attr_msg = attributes && attributes[:total] > 0 ? ", #{attributes[:total]} attributes" : ""
+            loc_msg = locations[:total] > 0 ? ", #{locations[:total]} cities" : ""
+            message = "OLX data already up to date (#{cat_msg}#{attr_msg}#{loc_msg})."
+          end
+
+          flash[:notice] = message
+        else
+          flash[:alert] = "No categories found. Please check OLX API configuration."
+        end
+
+        Rails.logger.info "[Shops] OLX setup completed: #{result.inspect}"
+      else
+        flash[:alert] = "Setup failed: #{result[:error]}"
+        Rails.logger.error "[Shops] OLX setup failed: #{result[:error]}"
+      end
+    rescue OlxApiService::AuthenticationError => e
+      flash[:alert] = "Authentication error: #{e.message}. Please check your OLX credentials."
+      Rails.logger.error "[Shops] OLX setup authentication error: #{e.message}"
+    rescue => e
+      flash[:alert] = "Setup error: #{e.message}"
+      Rails.logger.error "[Shops] OLX setup error: #{e.class} - #{e.message}"
+      Rails.logger.error e.backtrace.first(5).join("\n")
+    end
+
+    redirect_to @shop
   end
 
   private

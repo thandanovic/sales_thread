@@ -10,6 +10,8 @@ Rails.application.routes.draw do
     resources :shops do
       member do
         post :test_olx_connection
+        post :setup_olx_data
+        post :sync_from_olx
       end
 
       resources :products do
