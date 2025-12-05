@@ -21,6 +21,7 @@ Rails.application.routes.draw do
           post :bulk_publish_to_olx
           post :bulk_update_on_olx
           delete :bulk_remove_from_olx
+          delete :bulk_disconnect_from_olx
         end
         member do
           post :publish_to_olx
@@ -28,6 +29,7 @@ Rails.application.routes.draw do
           post :update_on_olx
           post :unpublish_from_olx
           delete :remove_from_olx
+          delete :disconnect_from_olx
         end
       end
       resources :imports, only: [:index, :new, :create, :show] do

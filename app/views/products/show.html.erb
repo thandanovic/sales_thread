@@ -1,321 +1,343 @@
-<div class="mb-8 flex justify-between items-center">
-  <div>
-    <h1 class="text-3xl font-bold text-gray-900"><%= @product.title %></h1>
-    <p class="mt-2 text-sm text-gray-700"><%= @product.brand %> - <%= @product.category %></p>
-  </div>
-  <div class="flex space-x-3">
-    <%= link_to "Edit", edit_shop_product_path(@shop, @product), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
-    <%= button_to "Delete", shop_product_path(@shop, @product), method: :delete, data: { turbo_confirm: "Are you sure?" }, class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700" %>
-  </div>
-</div>
+<%# Page Header %>
+<%= render "shared/components/page_header",
+    title: @product.title,
+    subtitle: "#{@product.brand} - #{@product.category}",
+    actions: capture {
+      concat link_to(edit_shop_product_path(@shop, @product), class: "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors") {
+        raw('<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>') +
+        "Edit"
+      }
 
-<div class="bg-white shadow overflow-hidden sm:rounded-lg">
-  <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-    <h3 class="text-lg leading-6 font-medium text-gray-900">Product Information</h3>
-  </div>
-  <div class="border-t border-gray-200">
-    <dl>
-      <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-        <dt class="text-sm font-medium text-gray-500">SKU</dt>
-        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2"><%= @product.sku || 'N/A' %></dd>
-      </div>
-      <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-        <dt class="text-sm font-medium text-gray-500">Base Price</dt>
-        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2"><%= number_to_currency(@product.price || 0, unit: @product.currency || "BAM") %></dd>
-      </div>
-      <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-        <dt class="text-sm font-medium text-gray-500">Margin</dt>
-        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2"><%= @product.margin || 0 %>%</dd>
-      </div>
-      <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-        <dt class="text-sm font-medium text-gray-500">Final Price</dt>
-        <dd class="mt-1 text-sm font-semibold text-green-600 sm:mt-0 sm:col-span-2"><%= number_to_currency(@product.final_price || 0, unit: @product.currency || "BAM") %></dd>
-      </div>
-      <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-        <dt class="text-sm font-medium text-gray-500">Stock</dt>
-        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2"><%= @product.stock || 0 %></dd>
-      </div>
-      <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-        <dt class="text-sm font-medium text-gray-500">Status</dt>
-        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-          <% if @product.published %>
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Published</span>
-          <% else %>
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Draft</span>
-          <% end %>
-        </dd>
-      </div>
-      <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-        <dt class="text-sm font-medium text-gray-500">Source</dt>
-        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2"><%= @product.source.humanize %></dd>
-      </div>
-      <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-        <dt class="text-sm font-medium text-gray-500">Description</dt>
-        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-          <% if @product.description.present? %>
-            <pre class="whitespace-pre-line font-sans"><%= @product.description %></pre>
-          <% else %>
-            <span class="text-gray-400">No description</span>
-          <% end %>
-        </dd>
-      </div>
+      concat " "
+
+      concat button_to(shop_product_path(@shop, @product), method: :delete, data: { turbo_confirm: "Are you sure you want to delete this product?" }, form_class: "inline-block", class: "inline-flex items-center gap-2 rounded-lg bg-danger px-4 py-2.5 text-sm font-medium text-white hover:bg-danger/90 transition-colors") {
+        raw('<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>') +
+        "Delete"
+      }
+    } %>
+
+<div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+  <%# Left Column - Product Images & Info %>
+  <div class="xl:col-span-2 space-y-6">
+    <%# Product Images %>
+    <%= render "shared/components/card", title: "Product Images", padding: false do %>
       <% if @product.images.attached? && @product.images.any? %>
-        <div class="bg-gray-50 px-4 py-5 sm:px-6">
-          <dt class="text-sm font-medium text-gray-500 mb-4">Product Images (<%= @product.images.count %>)</dt>
-          <dd class="mt-1 text-sm text-gray-900">
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <% @product.images.each do |image| %>
-                <div class="relative group">
-                  <%= image_tag image, class: "h-32 w-full object-cover rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer", onclick: "window.open('#{url_for(image)}', '_blank')" %>
-                  <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-lg transition-opacity"></div>
-                </div>
-              <% end %>
-            </div>
-          </dd>
+        <div class="p-6">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <% @product.images.each do |image| %>
+              <div class="relative group aspect-square">
+                <%= image_tag image, class: "h-full w-full object-cover rounded-lg shadow-sm cursor-pointer hover:shadow-lg transition-shadow", onclick: "window.open('#{url_for(image)}', '_blank')" %>
+                <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-lg transition-colors"></div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% elsif @product.image_urls.present? && @product.image_urls.any? %>
+        <div class="p-6">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <% @product.image_urls.each do |url| %>
+              <div class="relative group aspect-square">
+                <%= image_tag url, class: "h-full w-full object-cover rounded-lg shadow-sm cursor-pointer hover:shadow-lg transition-shadow", onclick: "window.open('#{url}', '_blank')" %>
+                <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-lg transition-colors"></div>
+              </div>
+            <% end %>
+          </div>
         </div>
       <% else %>
-        <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-          <dt class="text-sm font-medium text-gray-500">Images</dt>
-          <dd class="mt-1 text-sm text-gray-400 sm:mt-0 sm:col-span-2">No images available</dd>
+        <div class="px-6 py-12 text-center">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          <p class="mt-4 text-sm text-gray-500 dark:text-bodydark2">No images available</p>
         </div>
       <% end %>
-    </dl>
-  </div>
-</div>
-
-<!-- OLX Integration Section -->
-<div class="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
-  <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-    <h3 class="text-lg leading-6 font-medium text-gray-900">OLX Integration</h3>
-    <p class="mt-1 text-sm text-gray-500">Publish and manage this product on OLX marketplace</p>
-  </div>
-  <div class="px-4 py-5 sm:px-6">
-
-    <!-- Configuration Status -->
-    <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-      <h4 class="text-sm font-medium text-gray-700 mb-3">Configuration Status</h4>
-      <div class="space-y-2 text-sm">
-        <div class="flex items-center justify-between">
-          <span class="text-gray-600">OLX Template Assigned:</span>
-          <% if @product.olx_category_template.present? %>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              ✓ <%= @product.olx_category_template.display_name %>
-            </span>
-          <% else %>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-              ✗ No template
-            </span>
-          <% end %>
-        </div>
-
-        <% if @product.olx_category_template.present? %>
-          <div class="flex items-center justify-between">
-            <span class="text-gray-600">Category:</span>
-            <span class="text-gray-900"><%= @product.olx_category_template.olx_category.full_path %></span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-gray-600">Location:</span>
-            <span class="text-gray-900"><%= @product.olx_category_template.olx_location&.name || 'GPS Coordinates' %></span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-gray-600">Listing Type:</span>
-            <span class="text-gray-900"><%= @product.olx_category_template.default_listing_type&.humanize || 'N/A' %></span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-gray-600">Item State:</span>
-            <span class="text-gray-900"><%= @product.olx_category_template.default_state&.humanize || 'N/A' %></span>
-          </div>
-        <% end %>
-
-        <div class="flex items-center justify-between">
-          <span class="text-gray-600">Shop OLX Credentials:</span>
-          <% if @shop.olx_access_token.present? %>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              ✓ Configured
-            </span>
-          <% else %>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-              ✗ Not configured
-            </span>
-          <% end %>
-        </div>
-      </div>
-
-      <% if @product.olx_category_template.nil? || @shop.olx_access_token.blank? %>
-        <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-          <p class="text-sm text-yellow-800">
-            <strong>Action Required:</strong>
-            <% if @product.olx_category_template.nil? %>
-              Assign an OLX category template to this product.
-              <%= link_to "Edit Product", edit_shop_product_path(@shop, @product), class: "underline" %>
-            <% end %>
-            <% if @shop.olx_access_token.blank? %>
-              Configure OLX credentials in shop settings.
-              <%= link_to "Shop Settings", shop_path(@shop), class: "underline" %>
-            <% end %>
-          </p>
-        </div>
-      <% end %>
-    </div>
-
-    <hr class="my-6">
-
-    <!-- Generated OLX Content Preview -->
-    <% if @product.olx_category_template.present? %>
-      <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <h4 class="text-sm font-medium text-blue-900 mb-3">Generated OLX Content</h4>
-        <div class="space-y-4">
-          <div>
-            <p class="text-xs font-medium text-blue-700 mb-1">Generated Title:</p>
-            <p class="text-sm text-blue-900 font-medium bg-white px-3 py-2 rounded border border-blue-200">
-              <%= @product.generate_olx_title %>
-            </p>
-          </div>
-          <div>
-            <p class="text-xs font-medium text-blue-700 mb-1">Generated Description (filtered by template):</p>
-            <div class="text-sm text-blue-900 bg-white px-3 py-2 rounded border border-blue-200 max-h-64 overflow-y-auto">
-              <pre class="whitespace-pre-line font-sans text-xs"><%= @product.generate_olx_description %></pre>
-            </div>
-          </div>
-          <% if @product.image_urls.present? && @product.image_urls.any? %>
-            <div>
-              <p class="text-xs font-medium text-blue-700 mb-2">Images to Upload (<%= @product.image_urls.length %>):</p>
-              <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                <% @product.image_urls.take(8).each do |url| %>
-                  <img src="<%= url %>" class="h-20 w-full object-cover rounded border border-blue-200" alt="Product image">
-                <% end %>
-                <% if @product.image_urls.length > 8 %>
-                  <div class="h-20 flex items-center justify-center bg-blue-100 text-blue-700 text-xs font-medium rounded border border-blue-200">
-                    +<%= @product.image_urls.length - 8 %> more
-                  </div>
-                <% end %>
-              </div>
-            </div>
-          <% end %>
-        </div>
-        <p class="text-xs text-blue-600 mt-3 italic">
-          This is what will be sent to OLX when you publish or update the listing
-        </p>
-      </div>
-
-      <hr class="my-6">
     <% end %>
 
-    <!-- Listing Status -->
-    <% if @product.olx_listing.present? %>
-      <!-- Listing exists -->
-      <h4 class="text-sm font-medium text-gray-700 mb-3">Current Listing Status</h4>
-      <div class="space-y-4">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-700">Status:</p>
-            <p class="mt-1">
-              <% case @product.olx_listing.status %>
-              <% when 'published' %>
-                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                  Published on OLX
-                </span>
-              <% when 'draft' %>
-                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                  Draft
-                </span>
-              <% when 'pending' %>
-                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                  Pending
-                </span>
-              <% when 'failed' %>
-                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                  Failed
-                </span>
-              <% else %>
-                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                  <%= @product.olx_listing.status.humanize %>
-                </span>
+    <%# Product Description %>
+    <%= render "shared/components/card", title: "Description" do %>
+      <% if @product.description.present? %>
+        <div class="prose prose-sm dark:prose-invert max-w-none">
+          <pre class="whitespace-pre-line font-sans text-gray-700 dark:text-bodydark1"><%= @product.description %></pre>
+        </div>
+      <% else %>
+        <p class="text-gray-400 dark:text-bodydark2 italic">No description provided</p>
+      <% end %>
+    <% end %>
+
+    <%# OLX Integration %>
+    <%= render "shared/components/card", title: "OLX Integration" do %>
+      <%# Configuration Status %>
+      <div class="mb-6 rounded-lg bg-gray-50 p-4 dark:bg-strokedark">
+        <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-3">Configuration Status</h4>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-600 dark:text-bodydark2">OLX Template:</span>
+            <% if @product.olx_category_template.present? %>
+              <%= render "shared/components/badge", text: @product.olx_category_template.display_name, type: "success" %>
+            <% else %>
+              <%= render "shared/components/badge", text: "No template", type: "danger" %>
+            <% end %>
+          </div>
+
+          <% if @product.olx_category_template.present? %>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-600 dark:text-bodydark2">Category:</span>
+              <span class="text-sm text-gray-900 dark:text-white"><%= @product.olx_category_template.olx_category.full_path %></span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-600 dark:text-bodydark2">Location:</span>
+              <span class="text-sm text-gray-900 dark:text-white"><%= @product.olx_category_template.olx_location&.name || 'GPS Coordinates' %></span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-600 dark:text-bodydark2">Listing Type:</span>
+              <span class="text-sm text-gray-900 dark:text-white"><%= @product.olx_category_template.default_listing_type&.humanize || 'N/A' %></span>
+            </div>
+          <% end %>
+
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-600 dark:text-bodydark2">Shop OLX Credentials:</span>
+            <% if @shop.olx_access_token.present? %>
+              <%= render "shared/components/badge", text: "Configured", type: "success" %>
+            <% else %>
+              <%= render "shared/components/badge", text: "Not configured", type: "danger" %>
+            <% end %>
+          </div>
+        </div>
+
+        <% if @product.olx_category_template.nil? || @shop.olx_access_token.blank? %>
+          <div class="mt-4 rounded-lg bg-warning/10 border border-warning/30 p-3">
+            <p class="text-sm text-warning">
+              <strong>Action Required:</strong>
+              <% if @product.olx_category_template.nil? %>
+                <%= link_to "Assign a template", edit_shop_product_path(@shop, @product), class: "underline hover:no-underline" %>
+              <% end %>
+              <% if @shop.olx_access_token.blank? %>
+                <%= link_to "Configure OLX credentials", shop_path(@shop), class: "underline hover:no-underline" %>
               <% end %>
             </p>
           </div>
-          <% if @product.olx_listing.external_listing_id.present? %>
-            <div>
-              <p class="text-sm font-medium text-gray-700">Listing ID:</p>
-              <p class="mt-1 text-sm text-gray-900"><%= @product.olx_listing.external_listing_id %></p>
-            </div>
-          <% end %>
-        </div>
-
-        <% if @product.olx_listing.published? %>
-          <div class="mt-4">
-            <%= link_to "View on OLX", @product.olx_listing.olx_url, target: "_blank", class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700" %>
-          </div>
         <% end %>
+      </div>
 
-        <% if @product.olx_listing.failed? %>
-          <div class="mt-4 rounded-md bg-red-50 p-4">
-            <div class="flex">
-              <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+      <%# Generated OLX Content Preview %>
+      <% if @product.olx_category_template.present? %>
+        <div class="mb-6 rounded-lg bg-info/10 border border-info/30 p-4">
+          <h4 class="text-sm font-medium text-info mb-3">Generated OLX Content Preview</h4>
+          <div class="space-y-4">
+            <div>
+              <p class="text-xs font-medium text-info/80 mb-1">Title:</p>
+              <p class="text-sm text-gray-900 dark:text-white bg-white dark:bg-boxdark px-3 py-2 rounded-lg border border-info/20">
+                <%= @product.generate_olx_title %>
+              </p>
+            </div>
+            <div>
+              <p class="text-xs font-medium text-info/80 mb-1">Description:</p>
+              <div class="text-sm text-gray-900 dark:text-white bg-white dark:bg-boxdark px-3 py-2 rounded-lg border border-info/20 max-h-48 overflow-y-auto">
+                <pre class="whitespace-pre-line font-sans text-xs"><%= @product.generate_olx_description %></pre>
               </div>
-              <div class="ml-3 flex-1">
-                <h3 class="text-sm font-medium text-red-800">Failed to Publish</h3>
-                <div class="mt-2 text-sm text-red-700">
-                  <% if @product.olx_listing.metadata.present? && @product.olx_listing.metadata['error'].is_a?(String) %>
-                    <p><%= @product.olx_listing.metadata['error'] %></p>
-                  <% else %>
-                    <pre class="whitespace-pre-wrap font-sans text-xs"><%= JSON.pretty_generate(@product.olx_listing.metadata || {}) %></pre>
+            </div>
+            <% if @product.image_urls.present? && @product.image_urls.any? %>
+              <div>
+                <p class="text-xs font-medium text-info/80 mb-2">Images (<%= @product.image_urls.length %>):</p>
+                <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  <% @product.image_urls.take(6).each do |url| %>
+                    <img src="<%= url %>" class="h-16 w-full object-cover rounded border border-info/20" alt="Product image">
+                  <% end %>
+                  <% if @product.image_urls.length > 6 %>
+                    <div class="h-16 flex items-center justify-center bg-info/20 text-info text-xs font-medium rounded">
+                      +<%= @product.image_urls.length - 6 %>
+                    </div>
                   <% end %>
                 </div>
-                <div class="mt-4">
-                  <%= button_to "Retry Publishing", publish_to_olx_live_shop_product_path(@shop, @product), method: :post, class: "inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <%# Listing Status & Actions %>
+      <% if @product.olx_listing.present? %>
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <p class="text-sm font-medium text-gray-700 dark:text-bodydark1">Listing Status</p>
+            <div class="mt-1">
+              <% case @product.olx_listing.status %>
+              <% when 'published', 'active' %>
+                <%= render "shared/components/badge", text: "Live on OLX", type: "success" %>
+              <% when 'draft' %>
+                <%= render "shared/components/badge", text: "Draft", type: "warning" %>
+              <% when 'pending' %>
+                <%= render "shared/components/badge", text: "Pending", type: "info" %>
+              <% when 'failed' %>
+                <%= render "shared/components/badge", text: "Failed", type: "danger" %>
+              <% else %>
+                <%= render "shared/components/badge", text: @product.olx_listing.status.humanize, type: "default" %>
+              <% end %>
+            </div>
+          </div>
+          <% if @product.olx_listing.external_listing_id.present? %>
+            <div class="text-right">
+              <p class="text-sm font-medium text-gray-700 dark:text-bodydark1">OLX ID</p>
+              <p class="mt-1 text-sm text-gray-900 dark:text-white font-mono"><%= @product.olx_listing.external_listing_id %></p>
+            </div>
+          <% end %>
+        </div>
+
+        <% if @product.olx_listing.external_listing_id.present? %>
+          <%= link_to "https://olx.ba/artikal/#{@product.olx_listing.external_listing_id}", target: "_blank", class: "mb-4 inline-flex items-center gap-2 text-sm text-primary hover:text-primary-dark" do %>
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+            View on OLX
+          <% end %>
+        <% end %>
+
+        <% if @product.olx_listing.status == 'failed' && @product.olx_listing.metadata.present? %>
+          <div class="mb-4 rounded-lg bg-danger/10 border border-danger/30 p-4">
+            <div class="flex gap-3">
+              <svg class="h-5 w-5 text-danger flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <div>
+                <h4 class="text-sm font-medium text-danger">Publishing Failed</h4>
+                <div class="mt-1 text-sm text-danger/80">
+                  <% if @product.olx_listing.metadata['error'].is_a?(String) %>
+                    <p><%= @product.olx_listing.metadata['error'] %></p>
+                  <% else %>
+                    <pre class="whitespace-pre-wrap font-mono text-xs"><%= JSON.pretty_generate(@product.olx_listing.metadata) %></pre>
+                  <% end %>
                 </div>
               </div>
             </div>
           </div>
         <% end %>
 
-        <!-- Action buttons -->
-        <div class="mt-6 flex flex-wrap gap-3">
-          <% if @product.olx_listing.draft? %>
-            <%= button_to "Publish to OLX Live", publish_to_olx_live_shop_product_path(@shop, @product), method: :post, class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700" %>
-          <% elsif @product.olx_listing.published? %>
-            <%= button_to "Unpublish", unpublish_from_olx_shop_product_path(@shop, @product), method: :post, class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
+        <%# Action buttons %>
+        <div class="flex flex-wrap gap-3">
+          <% if @product.olx_listing.status == 'draft' %>
+            <%= button_to "Publish Live", publish_to_olx_live_shop_product_path(@shop, @product), method: :post, class: "inline-flex items-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-medium text-white hover:bg-success/90 transition-colors" %>
           <% end %>
 
           <% if @product.olx_listing.external_listing_id.present? %>
-            <%= button_to "Update Listing on OLX", update_on_olx_shop_product_path(@shop, @product), method: :post, class: "inline-flex items-center px-4 py-2 border border-blue-300 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50" %>
-            <%= button_to "Remove from OLX", remove_from_olx_shop_product_path(@shop, @product), method: :delete, data: { turbo_confirm: "Are you sure you want to remove this listing from OLX?" }, class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700" %>
+            <%= button_to "Update on OLX", update_on_olx_shop_product_path(@shop, @product), method: :post, class: "inline-flex items-center gap-2 rounded-lg border border-info bg-white px-4 py-2 text-sm font-medium text-info hover:bg-info/10 dark:bg-boxdark dark:hover:bg-info/10 transition-colors" %>
+            <%= button_to "Remove from OLX", remove_from_olx_shop_product_path(@shop, @product), method: :delete, data: { turbo_confirm: "Are you sure you want to remove this listing from OLX?" }, class: "inline-flex items-center gap-2 rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-danger/90 transition-colors" %>
+          <% end %>
+
+          <% if @product.olx_listing.status == 'failed' %>
+            <%= button_to "Retry Publishing", publish_to_olx_live_shop_product_path(@shop, @product), method: :post, class: "inline-flex items-center gap-2 rounded-lg bg-warning px-4 py-2 text-sm font-medium text-white hover:bg-warning/90 transition-colors" %>
+          <% end %>
+
+          <%# Disconnect from OLX - removes local connection only %>
+          <%= button_to disconnect_from_olx_shop_product_path(@shop, @product), method: :delete, data: { turbo_confirm: "Are you sure you want to disconnect this product from OLX? The listing on OLX will NOT be removed - only the local connection will be deleted." }, class: "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors" do %>
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+            </svg>
+            Disconnect from OLX
           <% end %>
         </div>
-      </div>
-    <% else %>
-      <!-- No listing yet -->
-      <div class="text-center py-6">
-        <p class="text-sm text-gray-500 mb-4">This product has not been published to OLX yet.</p>
+      <% else %>
+        <%# No listing yet %>
+        <div class="text-center py-6">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+          <p class="mt-4 text-sm text-gray-500 dark:text-bodydark2">Not published to OLX yet</p>
 
-        <% if @product.olx_category_template.present? %>
-          <div class="mb-4 p-4 bg-blue-50 rounded-md">
-            <p class="text-sm text-blue-700">
-              <span class="font-medium">Template:</span> <%= @product.olx_category_template.display_name %>
-            </p>
+          <% if @product.olx_external_id.present? %>
+            <div class="mt-4">
+              <%= link_to "https://olx.ba/artikal/#{@product.olx_external_id}", target: "_blank", class: "inline-flex items-center gap-2 text-sm text-primary hover:text-primary-dark" do %>
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+                View on OLX (Disconnected)
+              <% end %>
+            </div>
+          <% end %>
+
+          <% if @product.olx_category_template.present? && @shop.olx_access_token.present? %>
+            <div class="mt-6 flex justify-center gap-3">
+              <%= button_to "Publish as Draft", publish_to_olx_shop_product_path(@shop, @product), method: :post, class: "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors" %>
+              <%= button_to "Publish Live", publish_to_olx_live_shop_product_path(@shop, @product), method: :post, class: "inline-flex items-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-medium text-white hover:bg-success/90 transition-colors" %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+
+  <%# Right Column - Product Details %>
+  <div class="space-y-6">
+    <%# Pricing Card %>
+    <%= render "shared/components/card", title: "Pricing" do %>
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-gray-600 dark:text-bodydark2">Base Price</span>
+          <span class="text-sm font-medium text-gray-900 dark:text-white"><%= number_to_currency(@product.price || 0, unit: @product.currency || "BAM") %></span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-gray-600 dark:text-bodydark2">Margin</span>
+          <span class="text-sm font-medium text-gray-900 dark:text-white"><%= @product.margin || 0 %>%</span>
+        </div>
+        <div class="border-t border-gray-200 dark:border-strokedark pt-4">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-medium text-gray-700 dark:text-bodydark1">Final Price</span>
+            <span class="text-lg font-bold text-success"><%= number_to_currency(@product.final_price || 0, unit: @product.currency || "BAM") %></span>
           </div>
-          <div class="flex justify-center gap-3">
-            <%= button_to "Publish as Draft", publish_to_olx_shop_product_path(@shop, @product), method: :post, class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
-            <%= button_to "Publish Live on OLX", publish_to_olx_live_shop_product_path(@shop, @product), method: :post, class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700" %>
+        </div>
+      </div>
+    <% end %>
+
+    <%# Details Card %>
+    <%= render "shared/components/card", title: "Details" do %>
+      <dl class="space-y-4">
+        <div class="flex items-center justify-between">
+          <dt class="text-sm text-gray-600 dark:text-bodydark2">SKU</dt>
+          <dd class="text-sm font-medium text-gray-900 dark:text-white font-mono"><%= @product.sku || 'N/A' %></dd>
+        </div>
+        <div class="flex items-center justify-between">
+          <dt class="text-sm text-gray-600 dark:text-bodydark2">Stock</dt>
+          <dd class="text-sm font-medium text-gray-900 dark:text-white"><%= @product.stock || 0 %></dd>
+        </div>
+        <div class="flex items-center justify-between">
+          <dt class="text-sm text-gray-600 dark:text-bodydark2">Status</dt>
+          <dd>
+            <% if @product.published %>
+              <%= render "shared/components/badge", text: "Published", type: "success" %>
+            <% else %>
+              <%= render "shared/components/badge", text: "Draft", type: "default" %>
+            <% end %>
+          </dd>
+        </div>
+        <div class="flex items-center justify-between">
+          <dt class="text-sm text-gray-600 dark:text-bodydark2">Source</dt>
+          <dd><%= render "shared/components/badge", text: @product.source.humanize, type: "info" %></dd>
+        </div>
+        <% if @product.import_source.present? %>
+          <div class="flex items-center justify-between">
+            <dt class="text-sm text-gray-600 dark:text-bodydark2">Import Source</dt>
+            <dd class="text-sm text-gray-900 dark:text-white"><%= @product.import_source %></dd>
           </div>
-        <% else %>
-          <div class="mb-4 p-4 bg-yellow-50 rounded-md">
-            <p class="text-sm text-yellow-700">
-              Please assign an OLX category template to this product before publishing.
-            </p>
-          </div>
-          <%= link_to "Edit Product", edit_shop_product_path(@shop, @product), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
+        <% end %>
+      </dl>
+    <% end %>
+
+    <%# Quick Actions Card %>
+    <%= render "shared/components/card", title: "Quick Actions" do %>
+      <div class="space-y-3">
+        <%= link_to shop_products_path(@shop), class: "w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors" do %>
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+          </svg>
+          Back to Products
+        <% end %>
+
+        <%= link_to shop_path(@shop), class: "w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors" do %>
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
+          Back to Shop
         <% end %>
       </div>
     <% end %>
   </div>
-</div>
-
-<div class="mt-6 flex justify-between">
-  <%= link_to "Back to Products", shop_products_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
-  <%= link_to "Back to Shop", shop_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
 </div>

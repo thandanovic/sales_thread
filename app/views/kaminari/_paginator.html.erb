@@ -1,21 +1,36 @@
 <%= paginator.render do %>
-  <nav class="flex items-center justify-between">
-    <div class="flex-1 flex justify-between sm:hidden">
-      <%= prev_page_tag unless current_page.first? %>
-      <%= next_page_tag unless current_page.last? %>
+  <nav class="flex items-center justify-between border-t border-gray-200 dark:border-strokedark pt-4">
+    <%# Mobile: simplified prev/next %>
+    <div class="flex flex-1 justify-between sm:hidden">
+      <% if current_page.first? %>
+        <span class="relative inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-300 dark:border-strokedark dark:bg-boxdark dark:text-bodydark2 cursor-not-allowed">
+          Previous
+        </span>
+      <% else %>
+        <%= prev_page_tag %>
+      <% end %>
+      <% if current_page.last? %>
+        <span class="relative inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-300 dark:border-strokedark dark:bg-boxdark dark:text-bodydark2 cursor-not-allowed">
+          Next
+        </span>
+      <% else %>
+        <%= next_page_tag %>
+      <% end %>
     </div>
-    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+
+    <%# Desktop: full pagination %>
+    <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
       <div>
-        <p class="text-sm text-gray-700">
+        <p class="text-sm text-gray-700 dark:text-bodydark2">
           Page
-          <span class="font-medium"><%= current_page.number %></span>
+          <span class="font-medium text-gray-900 dark:text-white"><%= current_page.number %></span>
           of
-          <span class="font-medium"><%= total_pages %></span>
+          <span class="font-medium text-gray-900 dark:text-white"><%= total_pages %></span>
         </p>
       </div>
       <div>
-        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-          <%= prev_page_tag unless current_page.first? %>
+        <nav class="inline-flex items-center gap-1" aria-label="Pagination">
+          <%= prev_page_tag %>
           <% each_page do |page| %>
             <% if page.display_tag? %>
               <%= page_tag page %>
@@ -23,7 +38,7 @@
               <%= gap_tag %>
             <% end %>
           <% end %>
-          <%= next_page_tag unless current_page.last? %>
+          <%= next_page_tag %>
         </nav>
       </div>
     </div>

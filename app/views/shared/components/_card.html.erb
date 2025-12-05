@@ -1,0 +1,32 @@
+<%#
+  Card Component - TailAdmin style
+  Usage:
+    render "shared/components/card", title: "Section Title" do
+      ... content ...
+    end
+
+  Or without header:
+    render "shared/components/card" do
+      ... content ...
+    end
+%>
+<%
+  title ||= nil
+  subtitle ||= nil
+  padding ||= true
+%>
+
+<div class="rounded-xl border border-gray-200 bg-white shadow-card dark:border-strokedark dark:bg-boxdark">
+  <% if title.present? %>
+    <div class="border-b border-gray-200 px-6 py-4 dark:border-strokedark">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-white"><%= title %></h3>
+      <% if subtitle.present? %>
+        <p class="mt-1 text-sm text-gray-500 dark:text-bodydark2"><%= subtitle %></p>
+      <% end %>
+    </div>
+  <% end %>
+
+  <div class="<%= padding ? 'p-6' : '' %>">
+    <%= yield %>
+  </div>
+</div>

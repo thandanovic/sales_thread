@@ -30,7 +30,7 @@ class Product < ApplicationRecord
 
   ##
   # Publish product to OLX
-  # Creates a new listing or updates existing one
+  # Creates a new listing, updates existing one, or reconnects to a previously disconnected listing
   #
   # @return [OlxListing] The created/updated listing
   #
@@ -40,6 +40,9 @@ class Product < ApplicationRecord
     if olx_listing&.external_listing_id.present?
       # Update existing listing
       service.update_listing(olx_listing)
+    elsif olx_external_id.present?
+      # Reconnect to previously disconnected listing
+      service.reconnect_listing(olx_external_id)
     else
       # Create new listing
       service.create_listing

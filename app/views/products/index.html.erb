@@ -1,343 +1,356 @@
-<div class="mb-8 flex justify-between items-center">
-  <div>
-    <h1 class="text-3xl font-bold text-gray-900">Products - <%= @shop.name %></h1>
-    <p class="mt-2 text-sm text-gray-700">Manage your shop products</p>
-  </div>
-  <div class="flex space-x-3">
-    <%= link_to "Back to Shop", shop_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
-    <%= link_to "New Import", new_shop_import_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
-    <%= link_to "New Product", new_shop_product_path(@shop), class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700" %>
-  </div>
-</div>
+<%# Page Header %>
+<%= render "shared/components/page_header",
+    title: "Products",
+    subtitle: "Manage your shop products",
+    actions: capture {
+      concat link_to(new_shop_import_path(@shop), class: "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors") {
+        raw('<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>') +
+        "Import"
+      }
+      concat " "
+      concat link_to(new_shop_product_path(@shop), class: "inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-dark transition-colors") {
+        raw('<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>') +
+        "New Product"
+      }
+    } %>
 
-<% if @products.any? %>
-  <%# Actions Container - All bulk operations grouped together %>
-  <div class="mb-6 bg-white shadow rounded-lg overflow-hidden border border-gray-200">
-    <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
-      <h3 class="text-sm font-semibold text-gray-900">Actions</h3>
-    </div>
+<% if @products.any? || params[:olx_status].present? || params[:template_id].present? %>
+  <%# Filters Card %>
+  <%= render "shared/components/card", title: "Filters" do %>
+    <%= form_with url: shop_products_path(@shop), method: :get, class: "flex flex-wrap items-end gap-4" do |f| %>
+      <div class="flex-1 min-w-[180px]">
+        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-bodydark1">OLX Status</label>
+        <%= f.select :olx_status,
+            options_for_select([
+              ['All', ''],
+              ['Live', 'live'],
+              ['Draft', 'draft'],
+              ['Not on OLX', 'not_on_olx']
+            ], params[:olx_status]),
+            {},
+            class: "w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-4 pr-10 text-sm text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white appearance-none cursor-pointer" %>
+      </div>
 
-    <div class="p-4 space-y-4">
+      <div class="flex-1 min-w-[180px]">
+        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-bodydark1">Template</label>
+        <%= f.select :template_id,
+            options_for_select([['All Templates', '']] + @templates.map { |t| [t.display_name, t.id] }, params[:template_id]),
+            {},
+            { data: { controller: "slim-select", slim_select_placeholder_value: "All Templates", slim_select_search_placeholder_value: "Search templates..." } } %>
+      </div>
 
-      <%# Bulk Margin Update %>
-      <%= form_with url: bulk_update_margin_shop_products_path(@shop), method: :post, id: "bulk-margin-form" do |f| %>
-        <div class="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg p-3">
-          <div class="flex items-center justify-between flex-wrap gap-3">
-            <div class="flex items-center gap-3">
-              <svg class="h-5 w-5 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span class="text-sm font-medium text-gray-900">Update Margin</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <%= f.number_field :margin, step: 0.01, placeholder: "15.50", class: "block w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm bg-white" %>
-              <span class="text-xs font-medium text-gray-700">%</span>
-              <%= f.submit "Update Selected", class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500", style: "background-color: #2563eb !important; color: white !important;" %>
-            </div>
+      <div class="flex gap-2">
+        <%= f.submit "Apply", class: "inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-dark transition-colors cursor-pointer" %>
+        <%= link_to "Clear", shop_products_path(@shop), class: "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors" %>
+      </div>
+    <% end %>
+  <% end %>
+
+  <% if @products.any? %>
+    <%# Bulk Actions Card %>
+    <div class="mt-6 rounded-xl border border-gray-200 bg-white dark:border-strokedark dark:bg-boxdark">
+      <div class="border-b border-gray-200 px-6 py-4 dark:border-strokedark">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Bulk Actions</h3>
+          <div class="flex items-center gap-2">
+            <button type="button" id="select-all-btn" class="text-sm text-primary hover:text-primary-dark">Select All</button>
+            <span class="text-gray-300">|</span>
+            <button type="button" id="deselect-all-btn" class="text-sm text-gray-500 hover:text-gray-700 dark:text-bodydark2">Deselect All</button>
           </div>
         </div>
-      <% end %>
+      </div>
 
-      <%# OLX Operations %>
-      <div class="bg-green-50 border-l-4 border-green-400 rounded-r-lg p-3">
-        <div class="flex items-center justify-between flex-wrap gap-3">
-          <div class="flex items-center gap-3">
-            <svg class="h-5 w-5 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            <span class="text-sm font-medium text-gray-900">OLX Operations</span>
+      <div class="p-6 space-y-4">
+        <%# Margin Update %>
+        <%= form_with url: bulk_update_margin_shop_products_path(@shop), method: :post, id: "bulk-margin-form" do |f| %>
+          <div class="flex items-center justify-between gap-4 rounded-lg bg-info/10 p-4">
+            <div class="flex items-center gap-3">
+              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-info/20">
+                <svg class="h-5 w-5 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <span class="font-medium text-gray-900 dark:text-white">Update Margin</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <%= f.number_field :margin, step: 0.01, placeholder: "15.50", class: "w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:ring-primary dark:border-strokedark dark:bg-boxdark" %>
+              <span class="text-sm text-gray-500">%</span>
+              <%= f.submit "Update Selected", class: "rounded-lg bg-info px-4 py-2 text-sm font-medium text-white hover:bg-info/90 transition-colors cursor-pointer" %>
+            </div>
           </div>
-          <div class="flex items-center flex-wrap space-x-2">
-            <form action="<%= bulk_publish_to_olx_shop_products_path(@shop) %>" method="post" id="bulk-publish-form">
+        <% end %>
+
+        <%# OLX Operations %>
+        <div class="flex items-center justify-between gap-4 rounded-lg bg-success/10 p-4">
+          <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-success/20">
+              <svg class="h-5 w-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+              </svg>
+            </div>
+            <span class="font-medium text-gray-900 dark:text-white">OLX Operations</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <form action="<%= bulk_publish_to_olx_shop_products_path(@shop) %>" method="post" id="bulk-publish-form" class="inline">
               <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
-              <button type="submit" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700">
-                <svg class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-success px-4 py-2 text-sm font-medium text-white hover:bg-success/90 transition-colors">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
                 Publish
               </button>
             </form>
 
-            <form action="<%= bulk_update_on_olx_shop_products_path(@shop) %>" method="post" id="bulk-update-form">
+            <form action="<%= bulk_update_on_olx_shop_products_path(@shop) %>" method="post" id="bulk-update-form" class="inline">
               <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
-              <button type="submit" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700">
-                <svg class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-success bg-white px-4 py-2 text-sm font-medium text-success hover:bg-success/10 dark:bg-transparent transition-colors">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
                 Update
               </button>
             </form>
 
-            <form action="<%= bulk_remove_from_olx_shop_products_path(@shop) %>" method="post" id="bulk-remove-form" data-turbo-confirm="Are you sure? This will remove the selected products from OLX (but keep them in your database).">
+            <form action="<%= bulk_remove_from_olx_shop_products_path(@shop) %>" method="post" id="bulk-remove-form" class="inline" data-turbo-confirm="Are you sure? This will remove the selected products from OLX.">
               <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
               <%= hidden_field_tag :_method, :delete %>
-              <button type="submit" class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50">
-                <svg class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 transition-colors">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
                 Remove
               </button>
             </form>
+
+            <form action="<%= bulk_disconnect_from_olx_shop_products_path(@shop) %>" method="post" id="bulk-disconnect-form" class="inline" data-turbo-confirm="Are you sure? This will disconnect the selected products from OLX (local records only). Listings on OLX will NOT be affected.">
+              <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+              <%= hidden_field_tag :_method, :delete %>
+              <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 transition-colors" title="Disconnect from OLX without removing listings">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                </svg>
+                Disconnect
+              </button>
+            </form>
           </div>
         </div>
-      </div>
 
-      <%# Bulk Delete %>
-      <%= form_with url: bulk_destroy_shop_products_path(@shop), method: :delete, id: "bulk-delete-form", data: { turbo_confirm: "Are you sure? This will permanently delete the selected products and all associated data (images, OLX listings, import records). This action cannot be undone." } do |f| %>
-        <div class="bg-red-50 border-l-4 border-red-400 rounded-r-lg p-3">
-          <div class="flex items-center justify-between flex-wrap gap-3">
+        <%# Delete %>
+        <%= form_with url: bulk_destroy_shop_products_path(@shop), method: :delete, id: "bulk-delete-form", data: { turbo_confirm: "Are you sure? This will permanently delete the selected products." } do |f| %>
+          <div class="flex items-center justify-between gap-4 rounded-lg bg-danger/10 p-4">
             <div class="flex items-center gap-3">
-              <svg class="h-5 w-5 text-red-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span class="text-sm font-medium text-red-900">Delete Products</span>
-            </div>
-            <%= f.submit "Delete Selected", class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" %>
-          </div>
-        </div>
-      <% end %>
-    </div>
-  </div>
-
-  <%# Filters Section %>
-  <div class="mb-6 bg-white shadow rounded-lg overflow-hidden border border-gray-200">
-    <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
-      <h3 class="text-sm font-semibold text-gray-900">Filters</h3>
-    </div>
-    <div class="p-4">
-      <%= form_with url: shop_products_path(@shop), method: :get, class: "flex flex-wrap items-end gap-4" do |f| %>
-        <div class="flex-1 min-w-[200px]">
-          <label class="block text-sm font-medium text-gray-700 mb-2">OLX Status</label>
-          <%= f.select :olx_status,
-              options_for_select([
-                ['All', ''],
-                ['Live', 'live'],
-                ['Draft', 'draft'],
-                ['Not on OLX', 'not_on_olx']
-              ], params[:olx_status]),
-              {},
-              class: "block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" %>
-        </div>
-
-        <div class="flex-1 min-w-[200px]">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Template</label>
-          <%= f.select :template_id,
-              options_for_select([['All Templates', '']] + @templates.map { |t| [t.display_name, t.id] }, params[:template_id]),
-              {},
-              class: "block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" %>
-        </div>
-
-        <div class="flex gap-2">
-          <%= f.submit "Apply Filters", class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm" %>
-          <%= link_to "Clear", shop_products_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 shadow-sm" %>
-        </div>
-      <% end %>
-    </div>
-  </div>
-
-  <%# Products Table %>
-  <div class="bg-white shadow overflow-x-auto rounded-lg">
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
-        <tr>
-          <th scope="col" class="w-12 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            <input type="checkbox" id="select-all-checkbox" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OLX</th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Price</th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-        </tr>
-      </thead>
-      <tbody class="bg-white divide-y divide-gray-200">
-        <% @products.each do |product| %>
-          <tr class="hover:bg-gray-50">
-            <td class="px-6 py-4 whitespace-nowrap">
-              <input type="checkbox" name="product_ids[]" value="<%= product.id %>" class="product-checkbox h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <% if product.published_on_olx? %>
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Live</span>
-              <% elsif product.has_olx_listing? %>
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Draft</span>
-              <% else %>
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Not on OLX</span>
-              <% end %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <% if product.images.attached? %>
-                <%= image_tag product.images.first, class: "h-12 w-12 rounded object-cover" %>
-              <% else %>
-                <div class="h-12 w-12 bg-gray-200 rounded flex items-center justify-center">
-                  <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-              <% end %>
-            </td>
-            <td class="px-6 py-4">
-              <%= link_to product.title, shop_product_path(@shop, product), class: "text-sm font-medium text-indigo-600 hover:text-indigo-900" %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              <%= product.sku %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-              <%= number_to_currency(product.price || 0, unit: product.currency || "BAM") %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-              <%= number_to_currency(product.final_price || 0, unit: product.currency || "BAM") %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="flex items-center space-x-2">
-                <%= link_to "Edit", edit_shop_product_path(@shop, product), class: "text-indigo-600 hover:text-indigo-900 text-sm font-medium" %>
-                <span class="text-gray-300">|</span>
-                <%= form_with model: [product.shop, product], method: :patch, local: true, class: "inline-flex items-center gap-1" do |f| %>
-                  <%= f.number_field :margin, value: product.margin, step: 0.01, placeholder: "%", class: "block w-12 rounded-md border-gray-300 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-xs py-1" %>
-                  <%= f.submit "✓", class: "inline-flex items-center px-2 py-1 text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm" %>
-                <% end %>
+              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-danger/20">
+                <svg class="h-5 w-5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
               </div>
-            </td>
-          </tr>
+              <span class="font-medium text-gray-900 dark:text-white">Delete Products</span>
+            </div>
+            <%= f.submit "Delete Selected", class: "rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-danger/90 transition-colors cursor-pointer" %>
+          </div>
         <% end %>
-      </tbody>
-    </table>
-  </div>
+      </div>
+    </div>
 
-  <%# Pagination %>
-  <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4 rounded-lg shadow">
-    <%= paginate @products %>
-  </div>
+    <%# Products Table %>
+    <div class="mt-6 rounded-xl border border-gray-200 bg-white shadow-card dark:border-strokedark dark:bg-boxdark">
+      <div class="overflow-x-auto">
+        <table class="w-full table-auto">
+          <thead>
+            <tr class="border-b border-gray-200 bg-gray-50 dark:border-strokedark dark:bg-boxdark-2">
+              <th class="w-12 px-4 py-4">
+                <input type="checkbox" id="select-all-checkbox" class="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary">
+              </th>
+              <th class="px-4 py-4 text-left text-sm font-medium text-gray-600 dark:text-bodydark2">OLX</th>
+              <th class="px-4 py-4 text-left text-sm font-medium text-gray-600 dark:text-bodydark2">Product</th>
+              <th class="px-4 py-4 text-left text-sm font-medium text-gray-600 dark:text-bodydark2">SKU</th>
+              <th class="px-4 py-4 text-left text-sm font-medium text-gray-600 dark:text-bodydark2">Price</th>
+              <th class="px-4 py-4 text-left text-sm font-medium text-gray-600 dark:text-bodydark2">Final</th>
+              <th class="px-4 py-4 text-left text-sm font-medium text-gray-600 dark:text-bodydark2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @products.each do |product| %>
+              <tr class="border-b border-gray-200 hover:bg-gray-50 dark:border-strokedark dark:hover:bg-boxdark-2 transition-colors">
+                <td class="px-4 py-4">
+                  <input type="checkbox" name="product_ids[]" value="<%= product.id %>" class="product-checkbox h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary">
+                </td>
+                <td class="px-4 py-4">
+                  <% if product.published_on_olx? %>
+                    <%= render "shared/components/badge", text: "Live", type: "success" %>
+                  <% elsif product.has_olx_listing? %>
+                    <%= render "shared/components/badge", text: "Draft", type: "warning" %>
+                  <% else %>
+                    <%= render "shared/components/badge", text: "Not on OLX", type: "default" %>
+                  <% end %>
+                </td>
+                <td class="px-4 py-4">
+                  <div class="flex items-center gap-3">
+                    <% if product.images.attached? && product.images.first.present? %>
+                      <%= image_tag product.images.first, class: "h-12 w-12 rounded-lg object-cover" %>
+                    <% elsif product.image_urls.present? && product.image_urls.first.present? %>
+                      <%= image_tag product.image_urls.first, class: "h-12 w-12 rounded-lg object-cover" %>
+                    <% else %>
+                      <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 dark:bg-strokedark">
+                        <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                      </div>
+                    <% end %>
+                    <div class="min-w-0">
+                      <%= link_to product.title, shop_product_path(@shop, product), class: "block font-medium text-gray-900 hover:text-primary dark:text-white truncate max-w-[200px]" %>
+                      <% if product.brand.present? %>
+                        <p class="text-sm text-gray-500 dark:text-bodydark2"><%= product.brand %></p>
+                      <% end %>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-4 py-4">
+                  <span class="text-sm text-gray-600 dark:text-bodydark2"><%= product.sku || '-' %></span>
+                </td>
+                <td class="px-4 py-4">
+                  <span class="text-sm text-gray-900 dark:text-white"><%= number_to_currency(product.price || 0, unit: product.currency || "BAM") %></span>
+                </td>
+                <td class="px-4 py-4">
+                  <span class="text-sm font-semibold text-success"><%= number_to_currency(product.final_price || 0, unit: product.currency || "BAM") %></span>
+                </td>
+                <td class="px-4 py-4">
+                  <div class="flex items-center gap-2">
+                    <%= link_to edit_shop_product_path(@shop, product), class: "flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-strokedark transition-colors", title: "Edit" do %>
+                      <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
+                    <% end %>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      const selectAllCheckbox = document.getElementById('select-all-checkbox');
-      const productCheckboxes = document.querySelectorAll('.product-checkbox');
-      const bulkMarginForm = document.getElementById('bulk-margin-form');
-      const bulkDeleteForm = document.getElementById('bulk-delete-form');
-      const bulkPublishForm = document.getElementById('bulk-publish-form');
-      const bulkUpdateForm = document.getElementById('bulk-update-form');
-      const bulkRemoveForm = document.getElementById('bulk-remove-form');
+                    <%= form_with model: [product.shop, product], method: :patch, local: true, class: "flex items-center gap-1" do |f| %>
+                      <%= f.number_field :margin, value: product.margin, step: 0.01, placeholder: "%", class: "w-16 rounded-lg border border-gray-300 px-2 py-1 text-sm focus:border-primary focus:ring-primary dark:border-strokedark dark:bg-boxdark" %>
+                      <%= f.submit "✓", class: "flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-white text-xs hover:bg-primary-dark cursor-pointer" %>
+                    <% end %>
+                  </div>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-      // Sync checkboxes with select all checkbox
-      selectAllCheckbox.addEventListener('change', function() {
-        productCheckboxes.forEach(cb => cb.checked = this.checked);
-      });
+    <%# Pagination %>
+    <div class="mt-6">
+      <%= paginate @products %>
+    </div>
 
-      // Update select all checkbox when individual checkboxes change
-      productCheckboxes.forEach(cb => {
-        cb.addEventListener('change', function() {
-          const allChecked = Array.from(productCheckboxes).every(cb => cb.checked);
-          selectAllCheckbox.checked = allChecked;
-        });
-      });
+    <%# JavaScript for bulk selection %>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const selectAllCheckbox = document.getElementById('select-all-checkbox');
+        const selectAllBtn = document.getElementById('select-all-btn');
+        const deselectAllBtn = document.getElementById('deselect-all-btn');
+        const productCheckboxes = document.querySelectorAll('.product-checkbox');
+        const bulkForms = ['bulk-margin-form', 'bulk-delete-form', 'bulk-publish-form', 'bulk-update-form', 'bulk-remove-form', 'bulk-disconnect-form'];
 
-      // Copy checked product IDs to margin form on submit
-      bulkMarginForm.addEventListener('submit', function(e) {
-        // Remove any existing product_ids inputs from this form
-        const existingInputs = bulkMarginForm.querySelectorAll('input[name="product_ids[]"]');
-        existingInputs.forEach(input => input.remove());
-
-        // Add new inputs for checked products
-        productCheckboxes.forEach(cb => {
-          if (cb.checked) {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'product_ids[]';
-            input.value = cb.value;
-            bulkMarginForm.appendChild(input);
-          }
-        });
-      });
-
-      // Copy checked product IDs to delete form on submit
-      bulkDeleteForm.addEventListener('submit', function(e) {
-        // Remove any existing product_ids inputs from this form
-        const existingInputs = bulkDeleteForm.querySelectorAll('input[name="product_ids[]"]');
-        existingInputs.forEach(input => input.remove());
-
-        // Add new inputs for checked products
-        let hasChecked = false;
-        productCheckboxes.forEach(cb => {
-          if (cb.checked) {
-            hasChecked = true;
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'product_ids[]';
-            input.value = cb.value;
-            bulkDeleteForm.appendChild(input);
-          }
-        });
-
-        // Prevent submission if no products selected
-        if (!hasChecked) {
-          e.preventDefault();
-          alert('Please select at least one product to delete.');
-          return false;
+        // Select all checkbox
+        if (selectAllCheckbox) {
+          selectAllCheckbox.addEventListener('change', function() {
+            productCheckboxes.forEach(cb => cb.checked = this.checked);
+          });
         }
-      });
 
-      // Helper function to copy product IDs to a form
-      function copyProductIdsToForm(form, e) {
-        // Remove any existing product_ids inputs
-        const existingInputs = form.querySelectorAll('input[name="product_ids[]"]');
-        existingInputs.forEach(input => input.remove());
+        // Select all button
+        if (selectAllBtn) {
+          selectAllBtn.addEventListener('click', function() {
+            productCheckboxes.forEach(cb => cb.checked = true);
+            if (selectAllCheckbox) selectAllCheckbox.checked = true;
+          });
+        }
 
-        // Add new inputs for checked products
-        let hasChecked = false;
+        // Deselect all button
+        if (deselectAllBtn) {
+          deselectAllBtn.addEventListener('click', function() {
+            productCheckboxes.forEach(cb => cb.checked = false);
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+          });
+        }
+
+        // Update select all when individual checkboxes change
         productCheckboxes.forEach(cb => {
-          if (cb.checked) {
-            hasChecked = true;
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'product_ids[]';
-            input.value = cb.value;
-            form.appendChild(input);
-          }
+          cb.addEventListener('change', function() {
+            if (selectAllCheckbox) {
+              selectAllCheckbox.checked = Array.from(productCheckboxes).every(cb => cb.checked);
+            }
+          });
         });
 
-        // Prevent submission if no products selected
-        if (!hasChecked) {
-          e.preventDefault();
-          alert('Please select at least one product.');
-          return false;
-        }
-      }
+        // Copy product IDs to forms on submit
+        bulkForms.forEach(formId => {
+          const form = document.getElementById(formId);
+          if (form) {
+            form.addEventListener('submit', function(e) {
+              // Remove existing hidden inputs
+              form.querySelectorAll('input[name="product_ids[]"]').forEach(i => i.remove());
 
-      // Copy checked product IDs to OLX forms on submit
-      bulkPublishForm.addEventListener('submit', function(e) {
-        copyProductIdsToForm(bulkPublishForm, e);
-      });
+              // Add checked product IDs
+              let hasChecked = false;
+              productCheckboxes.forEach(cb => {
+                if (cb.checked) {
+                  hasChecked = true;
+                  const input = document.createElement('input');
+                  input.type = 'hidden';
+                  input.name = 'product_ids[]';
+                  input.value = cb.value;
+                  form.appendChild(input);
+                }
+              });
 
-      bulkUpdateForm.addEventListener('submit', function(e) {
-        copyProductIdsToForm(bulkUpdateForm, e);
+              if (!hasChecked) {
+                e.preventDefault();
+                alert('Please select at least one product.');
+              }
+            });
+          }
+        });
       });
-
-      bulkRemoveForm.addEventListener('submit', function(e) {
-        copyProductIdsToForm(bulkRemoveForm, e);
-      });
-    });
-  </script>
-<% else %>
-  <div class="text-center py-12 bg-white rounded-lg shadow">
-    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-    </svg>
-    <% if params[:olx_status].present? || params[:template_id].present? %>
-      <h3 class="mt-2 text-sm font-medium text-gray-900">No products match your filters</h3>
-      <p class="mt-1 text-sm text-gray-500">Try adjusting your filters or clear them to see all products.</p>
+    </script>
+  <% else %>
+    <%# No products match filters %>
+    <div class="mt-6 rounded-xl border border-gray-200 bg-white p-12 text-center shadow-card dark:border-strokedark dark:bg-boxdark">
+      <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-strokedark">
+        <svg class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <h3 class="mt-4 text-lg font-semibold text-gray-900 dark:text-white">No products match your filters</h3>
+      <p class="mt-2 text-sm text-gray-500 dark:text-bodydark2">Try adjusting your filters or clear them to see all products.</p>
       <div class="mt-6">
-        <%= link_to "Clear Filters", shop_products_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
+        <%= link_to shop_products_path(@shop), class: "inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-dark" do %>
+          Clear Filters
+        <% end %>
       </div>
-    <% else %>
-      <h3 class="mt-2 text-sm font-medium text-gray-900">No products</h3>
-      <p class="mt-1 text-sm text-gray-500">Get started by adding a product or importing from CSV/Intercars.</p>
-      <div class="mt-6 flex justify-center space-x-3">
-        <%= link_to "New Product", new_shop_product_path(@shop), class: "inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700" %>
-        <%= link_to "Import Products", new_shop_import_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
-      </div>
-    <% end %>
+    </div>
+  <% end %>
+<% else %>
+  <%# Empty State - No products at all %>
+  <div class="rounded-xl border border-gray-200 bg-white p-12 text-center shadow-card dark:border-strokedark dark:bg-boxdark">
+    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-strokedark">
+      <svg class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+      </svg>
+    </div>
+    <h3 class="mt-4 text-lg font-semibold text-gray-900 dark:text-white">No products yet</h3>
+    <p class="mt-2 text-sm text-gray-500 dark:text-bodydark2">Get started by adding a product or importing from CSV/Intercars.</p>
+    <div class="mt-6 flex justify-center gap-3">
+      <%= link_to new_shop_product_path(@shop), class: "inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-dark" do %>
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        New Product
+      <% end %>
+      <%= link_to new_shop_import_path(@shop), class: "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark" do %>
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+        </svg>
+        Import Products
+      <% end %>
+    </div>
   </div>
 <% end %>

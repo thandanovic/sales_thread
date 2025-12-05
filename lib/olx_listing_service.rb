@@ -99,6 +99,45 @@ class OlxListingService
   end
 
   ##
+  # Reconnect to a previously disconnected OLX listing
+  # Creates a new local OlxListing record linked to the existing OLX listing
+  #
+  # @param external_id [String] The external listing ID to reconnect to
+  # @return [OlxListing] The reconnected listing
+  #
+  def reconnect_listing(external_id)
+    Rails.logger.info "[OLX Listing] Reconnecting product #{product.id} to existing OLX listing #{external_id}"
+
+    begin
+      # Fetch the current listing data from OLX to verify it exists and get its status
+      response = OlxApiService.get("/listings/#{external_id}", shop)
+      Rails.logger.info "[OLX Listing] Found existing listing on OLX: #{response['id']} (status: #{response['status']})"
+
+      # Create local OlxListing record linked to the existing OLX listing
+      olx_listing = product.olx_listing || product.build_olx_listing(shop: shop)
+      olx_listing.update!(
+        external_listing_id: external_id,
+        status: response['status']&.downcase || 'active',
+        metadata: response
+      )
+
+      # Clear the olx_external_id from product since we're now connected
+      product.update_column(:olx_external_id, nil)
+
+      Rails.logger.info "[OLX Listing] ✓ Successfully reconnected product #{product.id} to listing #{external_id}"
+      olx_listing
+    rescue StandardError => e
+      Rails.logger.error "[OLX Listing] ✗ Failed to reconnect to listing #{external_id}: #{e.message}"
+      Rails.logger.error "[OLX Listing] Backtrace: #{e.backtrace&.first(3)&.join("\n")}"
+
+      # If reconnection fails (listing may have been deleted on OLX), clear the stored ID
+      # and let the user create a new listing
+      product.update_column(:olx_external_id, nil)
+      raise StandardError, "Could not reconnect to OLX listing #{external_id}. The listing may have been deleted on OLX. Please try publishing again to create a new listing."
+    end
+  end
+
+  ##
   # Update existing OLX listing
   #
   # @param olx_listing [OlxListing] Listing to update

@@ -1,211 +1,194 @@
-<%= form_with(model: [@shop, template], id: "template-form", class: "space-y-8") do |form| %>
+<%= form_with(model: [@shop, template], id: "template-form", class: "space-y-6") do |form| %>
   <% if template.errors.any? %>
-    <div class="rounded-md bg-red-50 p-4">
-      <h3 class="text-sm font-medium text-red-800">
-        <%= pluralize(template.errors.count, "error") %> prohibited this template from being saved:
-      </h3>
-      <ul class="mt-2 text-sm text-red-700 list-disc pl-5">
-        <% template.errors.full_messages.each do |message| %>
-          <li><%= message %></li>
-        <% end %>
-      </ul>
+    <div class="rounded-lg bg-danger/10 border border-danger/30 p-4">
+      <div class="flex gap-3">
+        <svg class="h-5 w-5 text-danger flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div>
+          <h3 class="text-sm font-medium text-danger">
+            <%= pluralize(template.errors.count, "error") %> prohibited this template from being saved:
+          </h3>
+          <ul class="mt-2 text-sm text-danger/80 list-disc pl-5 space-y-1">
+            <% template.errors.full_messages.each do |message| %>
+              <li><%= message %></li>
+            <% end %>
+          </ul>
+        </div>
+      </div>
     </div>
   <% end %>
 
-  <!-- Basic Information -->
-  <div class="bg-white shadow sm:rounded-lg">
-    <div class="px-4 py-5 sm:p-6">
-      <h3 class="text-lg font-medium leading-6 text-gray-900 mb-6">Basic Information</h3>
+  <%# Basic Information %>
+  <%= render "shared/components/card", title: "Basic Information" do %>
+    <div class="space-y-5">
+      <div>
+        <%= form.label :name, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.text_field :name, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors", placeholder: "e.g., Tyres, Auto Parts, Electronics" %>
+        <p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">A descriptive name for this template</p>
+      </div>
 
-      <div class="grid grid-cols-1 gap-6">
-        <div>
-          <%= form.label :name, class: "block text-sm font-medium text-gray-700" %>
-          <%= form.text_field :name, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md", placeholder: "e.g., Tyres, Auto Parts, Electronics" %>
-          <p class="mt-1 text-sm text-gray-500">A descriptive name for this template</p>
+      <div>
+        <%= form.label :title_template, "OLX Title Template", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.text_field :title_template, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors", placeholder: "e.g., {brand} {title}" %>
+
+        <div class="mt-3">
+          <button type="button" id="show-placeholders-btn" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Show Available Placeholders
+          </button>
         </div>
 
-        <div>
-          <%= form.label :title_template, "OLX Title Template", class: "block text-sm font-medium text-gray-700" %>
-          <%= form.text_field :title_template, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md", placeholder: "e.g., Akumulator {proizvodac_akumulatora} {kapacitet_baterije}" %>
-
-          <!-- Show Available Placeholders Button -->
-          <div class="mt-3">
-            <button type="button" id="show-placeholders-btn" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-              <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Show Available Placeholders
-            </button>
-          </div>
-
-          <!-- Placeholders Container -->
-          <div id="placeholders-container" class="mt-3 hidden">
-            <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
-              <div class="flex items-center justify-between mb-3">
-                <h4 class="text-sm font-medium text-gray-900">Available Placeholders</h4>
-                <button type="button" id="hide-placeholders-btn" class="text-xs text-gray-500 hover:text-gray-700">
-                  Hide
-                </button>
-              </div>
-
-              <div id="placeholders-content">
-                <div class="text-center py-4">
-                  <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-                  <p class="mt-2 text-sm text-gray-500">Loading placeholders...</p>
-                </div>
+        <div id="placeholders-container" class="mt-3 hidden">
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-strokedark dark:bg-strokedark">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-sm font-medium text-gray-900 dark:text-white">Available Placeholders</h4>
+              <button type="button" id="hide-placeholders-btn" class="text-xs text-gray-500 hover:text-gray-700 dark:text-bodydark2 dark:hover:text-white">
+                Hide
+              </button>
+            </div>
+            <div id="placeholders-content">
+              <div class="text-center py-4">
+                <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <p class="mt-2 text-sm text-gray-500 dark:text-bodydark2">Loading placeholders...</p>
               </div>
             </div>
           </div>
+        </div>
 
-          <p class="mt-2 text-xs text-gray-400">
-            <strong>Examples:</strong><br>
-            Tyres: "{brand} {title}" → "CONTINENTAL 225/55R19 ZOCO 99V TS870P"<br>
-            Batteries: "Akumulator {proizvodac_akumulatora} {kapacitet_baterije}" → "Akumulator 4MAX 77.0 Ah"
-          </p>
+        <p class="mt-2 text-xs text-gray-400 dark:text-bodydark2">
+          <strong>Examples:</strong><br>
+          Tyres: "{brand} {title}" - "CONTINENTAL 225/55R19"<br>
+          Batteries: "Akumulator {proizvodac_akumulatora}" - "Akumulator 4MAX"
+        </p>
+      </div>
+
+      <div>
+        <%= form.label :olx_category_id, "OLX Category", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.select :olx_category_id,
+            options_from_collection_for_select(@categories, :id, :full_path, template.olx_category_id),
+            { prompt: "Select a category" },
+            { id: "category-select", data: { controller: "slim-select", slim_select_placeholder_value: "Select a category...", slim_select_search_placeholder_value: "Search categories..." } } %>
+        <p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">Select the OLX category for products using this template</p>
+      </div>
+
+      <div>
+        <%= form.label :olx_location_id, "OLX Location (Optional)", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.select :olx_location_id,
+            options_from_collection_for_select(@locations, :id, :name, template.olx_location_id),
+            { prompt: "Select a location (or leave empty for GPS)" },
+            { data: { controller: "slim-select", slim_select_placeholder_value: "Select a location...", slim_select_search_placeholder_value: "Search locations..." } } %>
+        <p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">Optional - OLX.ba uses GPS coordinates by default</p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div>
+          <%= form.label :default_listing_type, "Listing Type", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+          <%= form.select :default_listing_type,
+              [["Sell", "sell"], ["Buy", "buy"], ["Rent", "rent"]],
+              { prompt: "Select type" },
+              { class: "w-full rounded-lg border border-gray-300 bg-white py-3 pl-4 pr-10 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors appearance-none cursor-pointer" } %>
         </div>
 
         <div>
-          <%= form.label :olx_category_id, "OLX Category", class: "block text-sm font-medium text-gray-700" %>
-          <%= form.select :olx_category_id,
-              options_from_collection_for_select(@categories, :id, :full_path, template.olx_category_id),
-              { prompt: "Select a category" },
-              { class: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md", id: "category-select" } %>
-          <p class="mt-1 text-sm text-gray-500">Select the OLX category for products using this template</p>
-        </div>
-
-        <div>
-          <%= form.label :olx_location_id, "OLX Location (Optional)", class: "block text-sm font-medium text-gray-700" %>
-          <%= form.select :olx_location_id,
-              options_from_collection_for_select(@locations, :id, :name, template.olx_location_id),
-              { prompt: "Select a location (or leave empty for GPS)" },
-              { class: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" } %>
-          <p class="mt-1 text-sm text-gray-500">Optional - OLX.ba uses GPS coordinates by default</p>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <%= form.label :default_listing_type, "Listing Type", class: "block text-sm font-medium text-gray-700" %>
-            <%= form.select :default_listing_type,
-                [["Sell", "sell"], ["Buy", "buy"], ["Rent", "rent"]],
-                { prompt: "Select type" },
-                { class: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" } %>
-          </div>
-
-          <div>
-            <%= form.label :default_state, "Item State", class: "block text-sm font-medium text-gray-700" %>
-            <%= form.select :default_state,
-                [["New", "new"], ["Used", "used"]],
-                { prompt: "Select state" },
-                { class: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" } %>
-          </div>
+          <%= form.label :default_state, "Item State", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+          <%= form.select :default_state,
+              [["New", "new"], ["Used", "used"]],
+              { prompt: "Select state" },
+              { class: "w-full rounded-lg border border-gray-300 bg-white py-3 pl-4 pr-10 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors appearance-none cursor-pointer" } %>
         </div>
       </div>
     </div>
-  </div>
+  <% end %>
 
-  <!-- Attribute Mappings -->
-  <div class="bg-white shadow sm:rounded-lg">
-    <div class="px-4 py-5 sm:p-6">
-      <div class="flex items-center justify-between mb-6">
-        <div>
-          <h3 class="text-lg font-medium leading-6 text-gray-900">Attribute Mappings</h3>
-          <p class="mt-1 text-sm text-gray-500">Map category-specific attributes to product fields or fixed values</p>
-        </div>
-        <button type="button" id="load-attributes-btn" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-          Load Attributes
-        </button>
+  <%# Attribute Mappings %>
+  <%= render "shared/components/card" do %>
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Attribute Mappings</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-bodydark2">Map category-specific attributes to product fields or fixed values</p>
       </div>
+      <button type="button" id="load-attributes-btn" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Load Attributes
+      </button>
+    </div>
 
-      <div id="attributes-container">
-        <div class="text-center py-8 text-gray-500">
-          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    <div id="attributes-container">
+      <div class="text-center py-8 text-gray-500 dark:text-bodydark2">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <p class="mt-2">Select a category and click "Load Attributes" to configure mappings</p>
+      </div>
+    </div>
+
+    <div class="mt-6 rounded-lg bg-info/10 border border-info/30 p-4">
+      <div class="flex gap-3">
+        <svg class="h-5 w-5 text-info flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div class="text-sm text-info">
+          <h4 class="font-medium">Mapping Examples</h4>
+          <ul class="mt-2 list-disc pl-5 space-y-1">
+            <li><strong>product.field_name</strong> - Maps to product attribute (e.g., product.brand)</li>
+            <li><strong>fixed:Value</strong> - Sets a fixed value (e.g., fixed:New)</li>
+            <li><strong>extract:keyword</strong> - Extracts from description (e.g., extract:width)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%# Description Filter %>
+  <%= render "shared/components/card" do %>
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Description Filter</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-bodydark2">Select which product specs to include in the OLX listing description</p>
+      </div>
+      <button type="button" id="load-specs-btn" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Load Specs
+      </button>
+    </div>
+
+    <div id="specs-container">
+      <% if template.description_filter&.any? %>
+        <div class="space-y-2">
+          <% template.description_filter.each do |field| %>
+            <div class="flex items-center">
+              <%= check_box_tag "olx_category_template[description_filter][]", field, true,
+                  id: "description_filter_#{field}",
+                  class: "h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary dark:border-strokedark dark:bg-boxdark" %>
+              <%= label_tag "description_filter_#{field}", field.titleize, class: "ml-2 text-sm text-gray-700 dark:text-bodydark1" %>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="text-center py-8 text-gray-500 dark:text-bodydark2">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
-          <p class="mt-2">Select a category and click "Load Attributes" to configure mappings</p>
+          <p class="mt-2">Click "Load Specs" to load available product specifications</p>
         </div>
-      </div>
-
-      <!-- Mapping Examples -->
-      <div class="mt-6 rounded-md bg-blue-50 p-4">
-        <div class="flex">
-          <div class="flex-shrink-0">
-            <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div class="ml-3 flex-1">
-            <h3 class="text-sm font-medium text-blue-800">Mapping Examples</h3>
-            <div class="mt-2 text-sm text-blue-700">
-              <ul class="list-disc pl-5 space-y-1">
-                <li><strong>product.field_name</strong> - Maps to a product attribute (e.g., product.brand, product.sku)</li>
-                <li><strong>fixed:Value</strong> - Sets a fixed value (e.g., fixed:New, fixed:Original)</li>
-                <li><strong>extract:keyword</strong> - Extracts from product description (e.g., extract:width, extract:season)</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
+      <% end %>
+      <%= hidden_field_tag "olx_category_template[description_filter][]", "", id: "hidden_description_filter" %>
     </div>
-  </div>
+  <% end %>
 
-  <!-- Description Filter -->
-  <div class="bg-white shadow sm:rounded-lg">
-    <div class="px-4 py-5 sm:p-6">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <h3 class="text-lg font-medium leading-6 text-gray-900">Description Filter</h3>
-          <p class="mt-1 text-sm text-gray-500">Select which product specs should be included in the OLX listing description</p>
-        </div>
-        <button type="button" id="load-specs-btn" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-          Load Specs
-        </button>
-      </div>
-
-      <div id="specs-container">
-        <% if template.description_filter&.any? %>
-          <!-- Show existing description_filter if editing -->
-          <div class="space-y-2">
-            <% template.description_filter.each do |field| %>
-              <div class="flex items-center">
-                <%= check_box_tag "olx_category_template[description_filter][]", field, true,
-                    id: "description_filter_#{field}",
-                    class: "h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" %>
-                <%= label_tag "description_filter_#{field}", field.titleize, class: "ml-2 text-sm text-gray-700" %>
-              </div>
-            <% end %>
-          </div>
-        <% else %>
-          <div class="text-center py-8 text-gray-500">
-            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <p class="mt-2">Click "Load Specs" to load available product specifications from a sample product</p>
-          </div>
-        <% end %>
-        <%= hidden_field_tag "olx_category_template[description_filter][]", "", id: "hidden_description_filter" %>
-      </div>
-
-      <div class="mt-4 rounded-md bg-blue-50 p-4">
-        <div class="flex">
-          <div class="flex-shrink-0">
-            <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-          </div>
-          <div class="ml-3 flex-1">
-            <h3 class="text-sm font-medium text-blue-800">How it works</h3>
-            <div class="mt-2 text-sm text-blue-700">
-              <p>Click "Load Specs" to automatically detect available product specifications from your imported products. Only the specs you select will appear in the OLX listing description.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="flex justify-end space-x-3">
-    <%= link_to "Cancel", shop_olx_category_templates_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
-    <%= form.submit class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700" %>
+  <%# Form Actions %>
+  <div class="flex justify-end gap-3">
+    <%= link_to shop_olx_category_templates_path(@shop), class: "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors" do %>
+      Cancel
+    <% end %>
+    <%= form.submit template.new_record? ? "Create Template" : "Update Template", class: "inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-dark transition-colors cursor-pointer" %>
   </div>
 <% end %>
 
@@ -224,27 +207,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
   let placeholdersLoaded = false;
 
-  // Pre-populate existing mappings if editing
   <% if template.persisted? && template.attribute_mappings.present? %>
     loadAttributesBtn.click();
   <% end %>
 
-  // Show placeholders section
   showPlaceholdersBtn.addEventListener('click', function() {
     placeholdersContainer.classList.remove('hidden');
-
-    // Load placeholders if not already loaded
     if (!placeholdersLoaded) {
       loadPlaceholders();
     }
   });
 
-  // Hide placeholders section
   hidePlaceholdersBtn.addEventListener('click', function() {
     placeholdersContainer.classList.add('hidden');
   });
 
-  // Load placeholders from API
   function loadPlaceholders() {
     fetch(`/shops/<%= @shop.id %>/olx_category_templates/load_placeholders`)
       .then(response => response.json())
@@ -254,214 +231,132 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .catch(error => {
         console.error('Error loading placeholders:', error);
-        placeholdersContent.innerHTML = `
-          <div class="text-center py-4 text-red-500">
-            <p>Error loading placeholders. Please try again.</p>
-          </div>
-        `;
+        placeholdersContent.innerHTML = '<div class="text-center py-4 text-danger"><p>Error loading placeholders.</p></div>';
       });
   }
 
-  // Render placeholders in a nice format
   function renderPlaceholders(data) {
     let html = '';
 
-    // Show sample product info if available
     if (data.sample_product) {
-      html += `
-        <div class="mb-4 text-xs text-gray-600 bg-white border border-gray-200 rounded p-2">
-          <strong>Sample from:</strong> ${data.sample_product.title} (${data.sample_product.sku})
-        </div>
-      `;
+      html += `<div class="mb-4 text-xs text-gray-600 dark:text-bodydark2 bg-white dark:bg-boxdark border border-gray-200 dark:border-strokedark rounded p-2">
+        <strong>Sample from:</strong> ${data.sample_product.title} (${data.sample_product.sku})
+      </div>`;
     }
 
-    // Basic placeholders
     if (data.basic && data.basic.length > 0) {
-      html += '<div class="mb-4">';
-      html += '<h5 class="text-xs font-semibold text-gray-700 mb-2">Basic Placeholders</h5>';
-      html += '<div class="grid grid-cols-1 gap-2">';
-
+      html += '<div class="mb-4"><h5 class="text-xs font-semibold text-gray-700 dark:text-bodydark1 mb-2">Basic Placeholders</h5><div class="grid grid-cols-1 gap-2">';
       data.basic.forEach(placeholder => {
-        html += `
-          <div class="bg-white border border-gray-200 rounded p-2 hover:border-indigo-300 cursor-pointer transition-colors"
-               onclick="insertPlaceholder('${placeholder.name}')">
-            <div class="flex items-start justify-between">
-              <div class="flex-1">
-                <code class="text-xs font-mono text-indigo-600">{${placeholder.name}}</code>
-                <p class="text-xs text-gray-600 mt-0.5">${placeholder.description}</p>
-              </div>
-            </div>
-            <div class="mt-1 text-xs text-gray-500">
-              Example: <span class="font-medium">${placeholder.example}</span>
-            </div>
-          </div>
-        `;
+        html += `<div class="bg-white dark:bg-boxdark border border-gray-200 dark:border-strokedark rounded p-2 hover:border-primary cursor-pointer transition-colors" onclick="insertPlaceholder('${placeholder.name}')">
+          <code class="text-xs font-mono text-primary">{${placeholder.name}}</code>
+          <p class="text-xs text-gray-600 dark:text-bodydark2 mt-0.5">${placeholder.description}</p>
+          <div class="mt-1 text-xs text-gray-500 dark:text-bodydark2">Example: <span class="font-medium">${placeholder.example}</span></div>
+        </div>`;
       });
-
       html += '</div></div>';
     }
 
-    // Spec-based placeholders
     if (data.specs && data.specs.length > 0) {
-      html += '<div>';
-      html += '<h5 class="text-xs font-semibold text-gray-700 mb-2">Product Specification Placeholders</h5>';
-      html += '<div class="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto">';
-
+      html += '<div><h5 class="text-xs font-semibold text-gray-700 dark:text-bodydark1 mb-2">Product Specification Placeholders</h5><div class="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">';
       data.specs.forEach(placeholder => {
-        html += `
-          <div class="bg-white border border-gray-200 rounded p-2 hover:border-indigo-300 cursor-pointer transition-colors"
-               onclick="insertPlaceholder('${placeholder.name}')">
-            <div class="flex items-start justify-between">
-              <div class="flex-1">
-                <code class="text-xs font-mono text-indigo-600">{${placeholder.name}}</code>
-                <p class="text-xs text-gray-600 mt-0.5">${placeholder.description}</p>
-              </div>
-            </div>
-            <div class="mt-1 text-xs text-gray-500">
-              Example: <span class="font-medium">${placeholder.example}</span>
-            </div>
-          </div>
-        `;
+        html += `<div class="bg-white dark:bg-boxdark border border-gray-200 dark:border-strokedark rounded p-2 hover:border-primary cursor-pointer transition-colors" onclick="insertPlaceholder('${placeholder.name}')">
+          <code class="text-xs font-mono text-primary">{${placeholder.name}}</code>
+          <p class="text-xs text-gray-600 dark:text-bodydark2 mt-0.5">${placeholder.description}</p>
+          <div class="mt-1 text-xs text-gray-500 dark:text-bodydark2">Example: <span class="font-medium">${placeholder.example}</span></div>
+        </div>`;
       });
-
       html += '</div></div>';
     }
 
-    if (!data.basic || data.basic.length === 0 && (!data.specs || data.specs.length === 0)) {
-      html = '<p class="text-sm text-gray-500 text-center py-4">No placeholders available. Import some products first.</p>';
+    if ((!data.basic || data.basic.length === 0) && (!data.specs || data.specs.length === 0)) {
+      html = '<p class="text-sm text-gray-500 dark:text-bodydark2 text-center py-4">No placeholders available. Import some products first.</p>';
     }
 
     placeholdersContent.innerHTML = html;
   }
 
-  // Insert placeholder into title input at cursor position
   window.insertPlaceholder = function(name) {
     const placeholder = `{${name}}`;
     const input = titleInput;
     const start = input.selectionStart;
     const end = input.selectionEnd;
     const text = input.value;
-
-    // Insert at cursor position
     input.value = text.substring(0, start) + placeholder + text.substring(end);
-
-    // Move cursor after inserted placeholder
     const newPosition = start + placeholder.length;
     input.setSelectionRange(newPosition, newPosition);
     input.focus();
-
-    // Trigger change event
     input.dispatchEvent(new Event('input', { bubbles: true }));
   };
 
-
   loadAttributesBtn.addEventListener('click', function() {
     const categoryId = categorySelect.value;
-
     if (!categoryId) {
       alert('Please select a category first');
       return;
     }
 
-    // Show loading state
-    attributesContainer.innerHTML = `
-      <div class="text-center py-8">
-        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-        <p class="mt-2 text-sm text-gray-500">Loading category attributes...</p>
-      </div>
-    `;
+    attributesContainer.innerHTML = `<div class="text-center py-8">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <p class="mt-2 text-sm text-gray-500 dark:text-bodydark2">Loading category attributes...</p>
+    </div>`;
 
-    // Fetch category attributes
     fetch(`/shops/<%= @shop.id %>/olx_category_templates/load_attributes?category_id=${categoryId}`)
       .then(response => response.json())
       .then(data => {
         if (data.attributes && data.attributes.length > 0) {
           renderAttributes(data.attributes);
         } else {
-          attributesContainer.innerHTML = `
-            <div class="text-center py-8 text-gray-500">
-              <p>No attributes found for this category</p>
-            </div>
-          `;
+          attributesContainer.innerHTML = '<div class="text-center py-8 text-gray-500 dark:text-bodydark2"><p>No attributes found for this category</p></div>';
         }
       })
       .catch(error => {
         console.error('Error loading attributes:', error);
-        attributesContainer.innerHTML = `
-          <div class="text-center py-8 text-red-500">
-            <p>Error loading attributes. Please try again.</p>
-          </div>
-        `;
+        attributesContainer.innerHTML = '<div class="text-center py-8 text-danger"><p>Error loading attributes. Please try again.</p></div>';
       });
   });
 
   loadSpecsBtn.addEventListener('click', function() {
-    // Show loading state
-    specsContainer.innerHTML = `
-      <div class="text-center py-8">
-        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-        <p class="mt-2 text-sm text-gray-500">Loading product specifications...</p>
-      </div>
-    `;
+    specsContainer.innerHTML = `<div class="text-center py-8">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <p class="mt-2 text-sm text-gray-500 dark:text-bodydark2">Loading product specifications...</p>
+    </div>`;
 
-    // Fetch available specs from a sample product
     fetch(`/shops/<%= @shop.id %>/olx_category_templates/load_specs`)
       .then(response => response.json())
       .then(data => {
         if (data.specs && data.specs.length > 0) {
           renderSpecs(data.specs, data.sample_product);
         } else {
-          specsContainer.innerHTML = `
-            <div class="text-center py-8 text-gray-500">
-              <p>${data.message || 'No specifications found. Import some products first.'}</p>
-            </div>
-          `;
+          specsContainer.innerHTML = `<div class="text-center py-8 text-gray-500 dark:text-bodydark2"><p>${data.message || 'No specifications found. Import some products first.'}</p></div>`;
         }
       })
       .catch(error => {
         console.error('Error loading specs:', error);
-        specsContainer.innerHTML = `
-          <div class="text-center py-8 text-red-500">
-            <p>Error loading specifications. Please try again.</p>
-          </div>
-        `;
+        specsContainer.innerHTML = '<div class="text-center py-8 text-danger"><p>Error loading specifications. Please try again.</p></div>';
       });
   });
 
   function renderAttributes(attributes) {
     const existingMappings = <%= raw (template.attribute_mappings || {}).to_json %>;
-
     let html = '<div class="space-y-4">';
 
     attributes.forEach(attr => {
-      const isRequired = attr.required ? '<span class="text-red-600">*</span>' : '';
+      const isRequired = attr.required ? '<span class="text-danger">*</span>' : '';
       const existingValue = existingMappings[attr.name] || existingMappings[attr.external_id] || '';
 
-      html += `
-        <div class="border border-gray-200 rounded-lg p-4">
-          <div class="flex items-start justify-between">
-            <div class="flex-1">
-              <label class="block text-sm font-medium text-gray-700">
-                ${attr.label || attr.name} ${isRequired}
-              </label>
-              ${attr.required ? '<p class="mt-1 text-xs text-gray-500">Required</p>' : ''}
-              ${attr.type ? `<p class="mt-1 text-xs text-gray-500">Type: ${attr.type}</p>` : ''}
-            </div>
-          </div>
-          <div class="mt-3">
-            <input type="text"
-              name="olx_category_template[attribute_mappings][${attr.external_id || attr.name}]"
-              value="${existingValue}"
-              placeholder="e.g., product.brand, fixed:New, extract:width"
-              class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-            ${attr.values && attr.values.length > 0 ? `
-              <p class="mt-2 text-xs text-gray-500">
-                Possible values: ${attr.values.slice(0, 5).join(', ')}${attr.values.length > 5 ? '...' : ''}
-              </p>
-            ` : ''}
+      html += `<div class="rounded-lg border border-gray-200 dark:border-strokedark p-4">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <label class="block text-sm font-medium text-gray-700 dark:text-bodydark1">${attr.label || attr.name} ${isRequired}</label>
+            ${attr.required ? '<p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">Required</p>' : ''}
+            ${attr.type ? `<p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">Type: ${attr.type}</p>` : ''}
           </div>
         </div>
-      `;
+        <div class="mt-3">
+          <input type="text" name="olx_category_template[attribute_mappings][${attr.external_id || attr.name}]" value="${existingValue}" placeholder="e.g., product.brand, fixed:New" class="w-full rounded-lg border border-gray-300 bg-white py-2.5 px-4 text-sm text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors">
+          ${attr.values && attr.values.length > 0 ? `<p class="mt-2 text-xs text-gray-500 dark:text-bodydark2">Possible values: ${attr.values.slice(0, 5).join(', ')}${attr.values.length > 5 ? '...' : ''}</p>` : ''}
+        </div>
+      </div>`;
     });
 
     html += '</div>';
@@ -470,35 +365,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function renderSpecs(specs, sampleProduct) {
     const existingFilter = <%= raw (template.description_filter || []).to_json %>;
-
-    let html = '<div class="mb-3 text-sm text-gray-600">';
+    let html = '<div class="mb-3 text-sm text-gray-600 dark:text-bodydark2">';
     if (sampleProduct) {
       html += `Sample from: <strong>${sampleProduct.title}</strong> (${sampleProduct.sku})`;
     }
-    html += '</div>';
-
-    html += '<div class="space-y-2">';
+    html += '</div><div class="space-y-2">';
 
     specs.forEach(spec => {
       const isChecked = existingFilter.includes(spec);
       const fieldId = `description_filter_${spec.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
-      html += `
-        <div class="flex items-center">
-          <input type="checkbox"
-            name="olx_category_template[description_filter][]"
-            value="${spec}"
-            id="${fieldId}"
-            ${isChecked ? 'checked' : ''}
-            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-          <label for="${fieldId}" class="ml-2 text-sm text-gray-700">${spec}</label>
-        </div>
-      `;
+      html += `<div class="flex items-center">
+        <input type="checkbox" name="olx_category_template[description_filter][]" value="${spec}" id="${fieldId}" ${isChecked ? 'checked' : ''} class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary dark:border-strokedark dark:bg-boxdark">
+        <label for="${fieldId}" class="ml-2 text-sm text-gray-700 dark:text-bodydark1">${spec}</label>
+      </div>`;
     });
 
-    html += '</div>';
-    html += '<input type="hidden" name="olx_category_template[description_filter][]" value="">';
-
+    html += '</div><input type="hidden" name="olx_category_template[description_filter][]" value="">';
     specsContainer.innerHTML = html;
   }
 });

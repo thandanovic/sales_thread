@@ -1,122 +1,182 @@
-<%= form_with(model: [product.shop, product], class: "space-y-6") do |form| %>
+<%= form_with(model: [product.shop, product], class: "space-y-8") do |form| %>
   <% if product.errors.any? %>
-    <div class="rounded-md bg-red-50 p-4">
-      <h3 class="text-sm font-medium text-red-800">
-        <%= pluralize(product.errors.count, "error") %> prohibited this product from being saved:
-      </h3>
-      <ul class="mt-2 text-sm text-red-700 list-disc pl-5">
-        <% product.errors.full_messages.each do |message| %>
-          <li><%= message %></li>
-        <% end %>
-      </ul>
+    <div class="rounded-lg bg-danger/10 border border-danger/30 p-4">
+      <div class="flex gap-3">
+        <svg class="h-5 w-5 text-danger flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div>
+          <h3 class="text-sm font-medium text-danger">
+            <%= pluralize(product.errors.count, "error") %> prohibited this product from being saved:
+          </h3>
+          <ul class="mt-2 text-sm text-danger/80 list-disc pl-5 space-y-1">
+            <% product.errors.full_messages.each do |message| %>
+              <li><%= message %></li>
+            <% end %>
+          </ul>
+        </div>
+      </div>
     </div>
   <% end %>
 
-  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-    <div class="sm:col-span-2">
-      <%= form.label :title, class: "block text-sm font-medium text-gray-700" %>
-      <%= form.text_field :title, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" %>
-    </div>
+  <%# Basic Information %>
+  <div>
+    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Basic Information</h3>
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <div class="sm:col-span-2">
+        <%= form.label :title, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.text_field :title, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors" %>
+      </div>
 
-    <div>
-      <%= form.label :sku, class: "block text-sm font-medium text-gray-700" %>
-      <%= form.text_field :sku, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" %>
-    </div>
+      <div>
+        <%= form.label :sku, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.text_field :sku, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors font-mono" %>
+      </div>
 
-    <div>
-      <%= form.label :brand, class: "block text-sm font-medium text-gray-700" %>
-      <%= form.text_field :brand, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" %>
-    </div>
+      <div>
+        <%= form.label :brand, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.text_field :brand, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors" %>
+      </div>
 
-    <div>
-      <%= form.label :category, class: "block text-sm font-medium text-gray-700" %>
-      <%= form.text_field :category, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" %>
-    </div>
+      <div>
+        <%= form.label :category, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.text_field :category, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors" %>
+      </div>
 
-    <div>
-      <%= form.label :price, "Base Price", class: "block text-sm font-medium text-gray-700" %>
-      <%= form.number_field :price, step: 0.01, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" %>
-    </div>
+      <div>
+        <%= form.label :stock, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.number_field :stock, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors" %>
+      </div>
 
-    <div>
-      <%= form.label :currency, class: "block text-sm font-medium text-gray-700" %>
-      <%= form.text_field :currency, value: (product.currency || 'BAM'), class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" %>
-    </div>
-
-    <div>
-      <%= form.label :margin, "Margin (%)", class: "block text-sm font-medium text-gray-700" %>
-      <%= form.number_field :margin, step: 0.01, value: (product.margin || 0), class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" %>
-      <p class="mt-1 text-xs text-gray-500">Final price will be calculated automatically: Base Price × (1 + Margin%/100)</p>
-    </div>
-
-    <div>
-      <%= form.label :final_price, class: "block text-sm font-medium text-gray-700" %>
-      <%= form.number_field :final_price, step: 0.01, value: (product.final_price || 0), disabled: true, class: "mt-1 bg-gray-100 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" %>
-      <p class="mt-1 text-xs text-gray-500">Calculated automatically based on base price and margin</p>
-    </div>
-
-    <div>
-      <%= form.label :stock, class: "block text-sm font-medium text-gray-700" %>
-      <%= form.number_field :stock, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" %>
-    </div>
-
-    <div class="sm:col-span-2">
-      <%= form.label :description, class: "block text-sm font-medium text-gray-700" %>
-      <%= form.text_area :description, rows: 4, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" %>
-    </div>
-
-    <div class="sm:col-span-2">
-      <%= form.label :olx_category_template_id, "OLX Category Template", class: "block text-sm font-medium text-gray-700" %>
-      <%= form.collection_select :olx_category_template_id,
-          product.shop.olx_category_templates,
-          :id,
-          :display_name,
-          { include_blank: "Select a template (optional)" },
-          class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" %>
-      <p class="mt-1 text-xs text-gray-500">Select a template to enable publishing to OLX with predefined category and location settings</p>
+      <div class="sm:col-span-2">
+        <%= form.label :description, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.text_area :description, rows: 4, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors" %>
+      </div>
     </div>
   </div>
 
-  <!-- OLX Listing Fields -->
-  <div class="border-t border-gray-200 pt-6">
+  <%# Pricing %>
+  <div class="border-t border-gray-200 dark:border-strokedark pt-8">
+    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Pricing</h3>
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <%= form.label :price, "Base Price", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.number_field :price, step: 0.01, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors" %>
+      </div>
+
+      <div>
+        <%= form.label :currency, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.text_field :currency, value: (product.currency || 'BAM'), class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors" %>
+      </div>
+
+      <div>
+        <%= form.label :margin, "Margin (%)", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.number_field :margin, step: 0.01, value: (product.margin || 0), class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors" %>
+        <p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">Final = Base × (1 + Margin%/100)</p>
+      </div>
+
+      <div>
+        <%= form.label :final_price, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.number_field :final_price, step: 0.01, value: (product.final_price || 0), disabled: true, class: "w-full rounded-lg border border-gray-200 bg-gray-100 py-3 px-4 text-gray-600 dark:border-strokedark dark:bg-strokedark dark:text-bodydark2 cursor-not-allowed" %>
+        <p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">Calculated automatically</p>
+      </div>
+    </div>
+  </div>
+
+  <%# OLX Integration %>
+  <div class="border-t border-gray-200 dark:border-strokedark pt-8">
     <div class="flex items-center justify-between mb-4">
       <div>
-        <h3 class="text-lg font-medium text-gray-900">OLX Listing Content</h3>
-        <p class="mt-1 text-sm text-gray-500">Customize the title and description that will appear on OLX</p>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white">OLX Integration</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-bodydark2">Configure OLX listing settings</p>
       </div>
-      <button type="button" id="auto-generate-btn" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-        <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    </div>
+
+    <div class="grid grid-cols-1 gap-5">
+      <div>
+        <%= form.label :olx_category_template_id, "OLX Category Template", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.collection_select :olx_category_template_id,
+            product.shop.olx_category_templates,
+            :id,
+            :display_name,
+            { include_blank: "Select a template (optional)" },
+            { data: { controller: "slim-select", slim_select_placeholder_value: "Select a template...", slim_select_search_placeholder_value: "Search templates..." } } %>
+        <p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">Required for publishing to OLX</p>
+      </div>
+    </div>
+  </div>
+
+  <%# OLX Listing Content %>
+  <div class="border-t border-gray-200 dark:border-strokedark pt-8">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white">OLX Listing Content</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-bodydark2">Customize the title and description for OLX</p>
+      </div>
+      <button type="button" id="auto-generate-btn" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
         </svg>
-        Auto-Generate from Template
+        Auto-Generate
       </button>
     </div>
 
-    <div class="grid grid-cols-1 gap-6">
+    <div class="grid grid-cols-1 gap-5">
       <div>
-        <%= form.label :olx_title, "OLX Title", class: "block text-sm font-medium text-gray-700" %>
-        <%= form.text_field :olx_title, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md", placeholder: "Will be auto-generated from template if left blank" %>
-        <p class="mt-1 text-xs text-gray-500">The title that will be displayed on OLX. Leave blank to auto-generate from template.</p>
+        <%= form.label :olx_title, "OLX Title", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.text_field :olx_title, placeholder: "Leave blank to auto-generate from template", class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors placeholder:text-gray-400 dark:placeholder:text-bodydark2" %>
       </div>
 
       <div>
-        <%= form.label :olx_description, "OLX Description", class: "block text-sm font-medium text-gray-700" %>
-        <%= form.text_area :olx_description, rows: 6, class: "mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md", placeholder: "Will be auto-generated from template if left blank" %>
-        <p class="mt-1 text-xs text-gray-500">The description that will be displayed on OLX. Leave blank to auto-generate based on template's description filter.</p>
+        <%= form.label :olx_description, "OLX Description", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.text_area :olx_description, rows: 6, placeholder: "Leave blank to auto-generate from template", class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors placeholder:text-gray-400 dark:placeholder:text-bodydark2" %>
       </div>
     </div>
   </div>
 
-  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-    <div class="sm:col-span-2">
-      <%= form.label :images, "Product Images", class: "block text-sm font-medium text-gray-700" %>
-      <%= form.file_field :images, multiple: true, class: "mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" %>
+  <%# Images %>
+  <div class="border-t border-gray-200 dark:border-strokedark pt-8">
+    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Product Images</h3>
+
+    <% if product.images.attached? && product.images.any? %>
+      <div class="mb-4">
+        <p class="text-sm text-gray-600 dark:text-bodydark2 mb-3">Uploaded images (<%= product.images.count %>):</p>
+        <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
+          <% product.images.each do |image| %>
+            <div class="relative group aspect-square">
+              <%= image_tag image.variant(resize_to_fill: [80, 80]), class: "h-full w-full object-cover rounded-lg border border-gray-200 dark:border-strokedark" %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% elsif product.image_urls.present? && product.image_urls.any? %>
+      <div class="mb-4">
+        <p class="text-sm text-gray-600 dark:text-bodydark2 mb-3">Current images (<%= product.image_urls.count %>):</p>
+        <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
+          <% product.image_urls.each do |url| %>
+            <div class="relative group aspect-square">
+              <%= image_tag url, class: "h-full w-full object-cover rounded-lg border border-gray-200 dark:border-strokedark" %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <div>
+      <%= form.label :images, "Upload Images", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+      <div class="relative">
+        <%= form.file_field :images, multiple: true, class: "w-full cursor-pointer rounded-lg border border-dashed border-gray-300 bg-gray-50 py-4 px-4 text-sm text-gray-600 outline-none transition file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:py-2 file:px-4 file:text-sm file:font-medium file:text-white hover:border-primary hover:bg-primary/5 dark:border-strokedark dark:bg-boxdark dark:text-bodydark2 dark:file:bg-primary dark:hover:border-primary" %>
+      </div>
+      <p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">Upload multiple images. Supported formats: JPG, PNG, WebP</p>
     </div>
   </div>
 
-  <div class="flex justify-end space-x-3">
-    <%= link_to "Cancel", shop_products_path(product.shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
-    <%= form.submit class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700" %>
+  <%# Form Actions %>
+  <div class="border-t border-gray-200 dark:border-strokedark pt-8 flex justify-end gap-3">
+    <%= link_to shop_products_path(product.shop), class: "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors" do %>
+      Cancel
+    <% end %>
+    <%= form.submit product.new_record? ? "Create Product" : "Update Product", class: "inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-dark transition-colors cursor-pointer" %>
   </div>
 <% end %>
 
@@ -142,7 +202,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
 
-      // Fetch template data to get title_template and description_filter
       try {
         const response = await fetch(`/shops/<%= product.shop.id %>/olx_category_templates/${templateId}.json`);
         if (!response.ok) {
@@ -151,7 +210,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const template = await response.json();
 
-        // Generate OLX title from title_template
         if (template.title_template) {
           let olxTitle = template.title_template;
           olxTitle = olxTitle.replace(/\{brand\}/gi, brandField?.value || '');
@@ -163,22 +221,18 @@ document.addEventListener('DOMContentLoaded', function() {
           olxTitleField.value = olxTitle;
         }
 
-        // For description, we'll need to filter the description based on description_filter
-        // This is complex, so for now we'll just copy the full description
-        // The server will handle the filtering when saving
         if (descriptionField?.value && !olxDescriptionField.value) {
           olxDescriptionField.value = descriptionField.value;
         }
 
-        // Show success message
         const btn = autoGenerateBtn;
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>Generated!';
-        btn.classList.add('bg-green-50', 'text-green-700');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Generated!';
+        btn.classList.add('bg-success/10', 'text-success', 'border-success/30');
 
         setTimeout(() => {
-          btn.innerHTML = originalText;
-          btn.classList.remove('bg-green-50', 'text-green-700');
+          btn.innerHTML = originalHTML;
+          btn.classList.remove('bg-success/10', 'text-success', 'border-success/30');
         }, 2000);
 
       } catch (error) {

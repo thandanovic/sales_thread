@@ -1,0 +1,67 @@
+<%#
+  Stat Card Component - TailAdmin style
+  Usage:
+    render "shared/components/stat_card",
+      title: "Total Products",
+      value: @products.count,
+      icon: "box",        # box, shop, upload, template, users
+      link_path: products_path,
+      link_text: "View all"
+%>
+<%
+  title ||= ""
+  value ||= 0
+  icon ||= "box"
+  link_path ||= nil
+  link_text ||= "View details"
+  color ||= "primary"  # primary, success, warning, danger, info
+%>
+
+<div class="rounded-xl border border-gray-200 bg-white p-6 shadow-card dark:border-strokedark dark:bg-boxdark">
+  <div class="flex items-center justify-between">
+    <div class="flex h-12 w-12 items-center justify-center rounded-full bg-<%= color %>/10">
+      <% case icon %>
+      <% when "box" %>
+        <svg class="h-6 w-6 text-<%= color %>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+        </svg>
+      <% when "shop" %>
+        <svg class="h-6 w-6 text-<%= color %>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+        </svg>
+      <% when "upload" %>
+        <svg class="h-6 w-6 text-<%= color %>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+        </svg>
+      <% when "template" %>
+        <svg class="h-6 w-6 text-<%= color %>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+        </svg>
+      <% when "users" %>
+        <svg class="h-6 w-6 text-<%= color %>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+        </svg>
+      <% else %>
+        <svg class="h-6 w-6 text-<%= color %>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="mt-4">
+    <h4 class="text-2xl font-bold text-gray-900 dark:text-white"><%= value %></h4>
+    <span class="text-sm font-medium text-gray-500 dark:text-bodydark2"><%= title %></span>
+  </div>
+
+  <% if link_path.present? %>
+    <div class="mt-4 pt-4 border-t border-gray-200 dark:border-strokedark">
+      <%= link_to link_path, class: "text-sm font-medium text-primary hover:text-primary-dark inline-flex items-center gap-1" do %>
+        <%= link_text %>
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      <% end %>
+    </div>
+  <% end %>
+</div>

@@ -1,116 +1,111 @@
-<div class="mb-8 flex justify-between items-center">
-  <div>
-    <h1 class="text-3xl font-bold text-gray-900">Import History - <%= @shop.name %></h1>
-    <p class="mt-2 text-sm text-gray-700">View all product imports</p>
-  </div>
-  <div class="flex space-x-3">
-    <%= link_to "Back to Shop", shop_path(@shop), class: "inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" %>
-    <%= link_to "New Import", new_shop_import_path(@shop), class: "inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700" %>
-  </div>
-</div>
+<%# Page Header %>
+<%= render "shared/components/page_header",
+    title: "Import History",
+    subtitle: "#{@shop.name} - View all product imports",
+    actions: capture {
+      concat link_to(shop_path(@shop), class: "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors") {
+        raw('<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>') +
+        "Back to Shop"
+      }
+
+      concat " "
+
+      concat link_to(new_shop_import_path(@shop), class: "inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-dark transition-colors") {
+        raw('<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>') +
+        "New Import"
+      }
+    } %>
 
 <% if @imports.any? %>
-  <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
-        <tr>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Source
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Status
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Results
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Started
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Completed
-          </th>
-          <th scope="col" class="relative px-6 py-3">
-            <span class="sr-only">Actions</span>
-          </th>
-        </tr>
-      </thead>
-      <tbody class="bg-white divide-y divide-gray-200">
-        <% @imports.each do |import| %>
-          <tr class="hover:bg-gray-50">
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="flex items-center">
-                <% if import.source == 'intercars' %>
-                  <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                    Intercars
-                  </span>
-                <% else %>
-                  <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                    <%= import.source&.upcase || 'CSV' %>
-                  </span>
-                <% end %>
-              </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <% case import.status %>
-              <% when 'completed' %>
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                  Completed
-                </span>
-              <% when 'completed_with_errors' %>
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                  Completed (with errors)
-                </span>
-              <% when 'processing' %>
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                  Processing...
-                </span>
-              <% when 'failed' %>
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                  Failed
-                </span>
-              <% else %>
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                  <%= import.status&.humanize || 'Pending' %>
-                </span>
-              <% end %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              <% if import.total_rows && import.total_rows > 0 %>
-                <div class="text-green-600 font-medium"><%= import.successful_rows || 0 %> / <%= import.total_rows %></div>
-                <% if import.failed_rows && import.failed_rows > 0 %>
-                  <div class="text-red-600 text-xs"><%= import.failed_rows %> failed</div>
-                <% end %>
-              <% else %>
-                <span class="text-gray-400">-</span>
-              <% end %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              <%= import.started_at&.strftime('%b %d, %Y %H:%M') || '-' %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              <%= import.completed_at&.strftime('%b %d, %Y %H:%M') || '-' %>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-              <%= link_to "View Details", shop_import_path(@shop, import), class: "text-indigo-600 hover:text-indigo-900" %>
-            </td>
+  <%= render "shared/components/card", padding: false do %>
+    <div class="overflow-x-auto">
+      <table class="w-full table-auto">
+        <thead>
+          <tr class="bg-gray-50 text-left dark:bg-strokedark">
+            <th class="px-6 py-4 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-bodydark2">Source</th>
+            <th class="px-6 py-4 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-bodydark2">Status</th>
+            <th class="px-6 py-4 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-bodydark2">Results</th>
+            <th class="px-6 py-4 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-bodydark2">Started</th>
+            <th class="px-6 py-4 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-bodydark2">Completed</th>
+            <th class="px-6 py-4 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-bodydark2"></th>
           </tr>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="mt-4">
-    <%= paginate @imports %>
-  </div>
-<% else %>
-  <div class="text-center py-12 bg-white rounded-lg shadow">
-    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    </svg>
-    <h3 class="mt-2 text-sm font-medium text-gray-900">No imports yet</h3>
-    <p class="mt-1 text-sm text-gray-500">Get started by importing products from CSV or Intercars.</p>
-    <div class="mt-6">
-      <%= link_to "New Import", new_shop_import_path(@shop), class: "inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700" %>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-strokedark">
+          <% @imports.each do |import| %>
+            <tr class="hover:bg-gray-50 dark:hover:bg-strokedark transition-colors">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <% if import.source == 'intercars' %>
+                  <%= render "shared/components/badge", text: "Intercars", type: "info" %>
+                <% elsif import.source == 'olx' %>
+                  <%= render "shared/components/badge", text: "OLX Sync", type: "success" %>
+                <% else %>
+                  <%= render "shared/components/badge", text: (import.source&.upcase || 'CSV'), type: "default" %>
+                <% end %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <% case import.status %>
+                <% when 'completed' %>
+                  <%= render "shared/components/badge", text: "Completed", type: "success" %>
+                <% when 'completed_with_errors' %>
+                  <%= render "shared/components/badge", text: "With Errors", type: "warning" %>
+                <% when 'processing' %>
+                  <%= render "shared/components/badge", text: "Processing", type: "info" %>
+                <% when 'failed' %>
+                  <%= render "shared/components/badge", text: "Failed", type: "danger" %>
+                <% else %>
+                  <%= render "shared/components/badge", text: (import.status&.humanize || 'Pending'), type: "default" %>
+                <% end %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <% if import.total_rows && import.total_rows > 0 %>
+                  <div class="text-sm font-medium text-success"><%= import.successful_rows || 0 %> / <%= import.total_rows %></div>
+                  <% if import.failed_rows && import.failed_rows > 0 %>
+                    <div class="text-xs text-danger"><%= import.failed_rows %> failed</div>
+                  <% end %>
+                <% else %>
+                  <span class="text-sm text-gray-400 dark:text-bodydark2">-</span>
+                <% end %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-bodydark2">
+                <%= import.started_at&.strftime('%b %d, %Y %H:%M') || '-' %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-bodydark2">
+                <%= import.completed_at&.strftime('%b %d, %Y %H:%M') || '-' %>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right">
+                <%= link_to shop_import_path(@shop, import), class: "inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-dark" do %>
+                  View
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
     </div>
-  </div>
+
+    <div class="px-6 py-4 border-t border-gray-200 dark:border-strokedark">
+      <%= paginate @imports %>
+    </div>
+  <% end %>
+<% else %>
+  <%= render "shared/components/card" do %>
+    <div class="py-12 text-center">
+      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white">No imports yet</h3>
+      <p class="mt-2 text-sm text-gray-500 dark:text-bodydark2">Get started by importing products from CSV or Intercars.</p>
+      <div class="mt-6">
+        <%= link_to new_shop_import_path(@shop), class: "inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-dark transition-colors" do %>
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          New Import
+        <% end %>
+      </div>
+    </div>
+  <% end %>
 <% end %>

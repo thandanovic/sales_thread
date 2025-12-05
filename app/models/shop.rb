@@ -2,6 +2,9 @@ class Shop < ApplicationRecord
   # Encryption for sensitive settings
   encrypts :settings
 
+  # Active Storage
+  has_one_attached :logo
+
   # Associations
   has_many :memberships, dependent: :destroy
   has_many :users, through: :memberships

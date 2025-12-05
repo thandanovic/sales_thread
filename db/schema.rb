@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_13_213303) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_05_082307) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -190,6 +190,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_13_213303) do
     t.string "olx_title"
     t.text "olx_description"
     t.string "import_source", default: "manual"
+    t.string "olx_external_id"
     t.index ["import_source"], name: "index_products_on_import_source"
     t.index ["olx_category_template_id"], name: "index_products_on_olx_category_template_id"
     t.index ["shop_id"], name: "index_products_on_shop_id"

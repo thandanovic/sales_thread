@@ -1,12 +1,8 @@
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-  <div class="mb-6">
-    <h1 class="text-3xl font-bold text-gray-900">Edit OLX Category Template</h1>
-    <p class="mt-2 text-sm text-gray-700">Update your template configuration and attribute mappings.</p>
-  </div>
+<%# Page Header %>
+<%= render "shared/components/page_header",
+    title: "Edit OLX Category Template",
+    subtitle: "Update your template configuration and attribute mappings" %>
 
+<div class="max-w-4xl">
   <%= render "form", template: @template %>
-
-  <div class="mt-6">
-    <%= link_to "← Back to Templates", shop_olx_category_templates_path(@shop), class: "text-indigo-600 hover:text-indigo-900" %>
-  </div>
 </div>

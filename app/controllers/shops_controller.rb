@@ -201,6 +201,6 @@ class ShopsController < ApplicationController
   end
 
   def shop_params
-    params.require(:shop).permit(:name, :olx_username, :olx_password)
+    params.require(:shop).permit(:name, :logo, :olx_username, :olx_password)
   end
 end

@@ -1,7 +1,7 @@
 <% if page.current? %>
-  <span class="relative inline-flex items-center px-4 py-2 border border-indigo-500 bg-indigo-50 text-sm font-medium text-indigo-600">
+  <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-medium text-white">
     <%= page %>
   </span>
 <% else %>
-  <%= link_to page, url, remote: remote, rel: page.rel, class: 'relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50' %>
+  <%= link_to page, url, remote: remote, rel: page.rel, class: 'inline-flex h-9 w-9 items-center justify-center rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-bodydark1 dark:hover:bg-strokedark transition-colors' %>
 <% end %>

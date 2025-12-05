@@ -1,8 +1,8 @@
 class ProductsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_shop, only: [:index, :show, :new, :create, :edit, :update, :destroy, :bulk_update_margin, :bulk_destroy, :bulk_publish_to_olx, :bulk_update_on_olx, :bulk_remove_from_olx, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx]
-  before_action :set_product, only: [:show, :edit, :update, :destroy, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx]
-  before_action :authorize_shop, only: [:new, :create, :edit, :update, :destroy, :bulk_update_margin, :bulk_destroy, :bulk_publish_to_olx, :bulk_update_on_olx, :bulk_remove_from_olx, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx]
+  before_action :set_shop, only: [:index, :show, :new, :create, :edit, :update, :destroy, :bulk_update_margin, :bulk_destroy, :bulk_publish_to_olx, :bulk_update_on_olx, :bulk_remove_from_olx, :bulk_disconnect_from_olx, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx, :disconnect_from_olx]
+  before_action :set_product, only: [:show, :edit, :update, :destroy, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx, :disconnect_from_olx]
+  before_action :authorize_shop, only: [:new, :create, :edit, :update, :destroy, :bulk_update_margin, :bulk_destroy, :bulk_publish_to_olx, :bulk_update_on_olx, :bulk_remove_from_olx, :bulk_disconnect_from_olx, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx, :disconnect_from_olx]
 
   def index
     @products = @shop.products.order(created_at: :desc)
@@ -52,7 +52,7 @@ class ProductsController < ApplicationController
 
   def update
     if @product.update(product_params)
-      redirect_to shop_products_path(@shop), notice: 'Product was successfully updated.'
+      redirect_to shop_product_path(@shop, @product), notice: 'Product was successfully updated.'
     else
       render :edit, status: :unprocessable_entity
     end
@@ -369,6 +369,64 @@ class ProductsController < ApplicationController
     rescue StandardError => e
       redirect_to shop_product_path(@shop, @product), alert: "Failed to remove from OLX: #{e.message}"
     end
+  end
+
+  ##
+  # Disconnect product from OLX without removing the listing from OLX
+  # This only removes the local olx_listing record, keeping the product in the app
+  # and the listing on OLX (if any) untouched
+  # The external_listing_id is saved on the product so it can be reconnected later
+  #
+  def disconnect_from_olx
+    if @product.olx_listing.present?
+      # Save the external listing ID to the product before deleting the olx_listing
+      # This allows reconnecting to the same listing later
+      if @product.olx_listing.external_listing_id.present?
+        @product.update_column(:olx_external_id, @product.olx_listing.external_listing_id)
+        Rails.logger.info "[Products] Saved external_listing_id #{@product.olx_listing.external_listing_id} to product #{@product.id}"
+      end
+
+      @product.olx_listing.destroy
+      Rails.logger.info "[Products] Disconnected product #{@product.id} from OLX (local record only)"
+      redirect_to shop_product_path(@shop, @product), notice: 'Product disconnected from OLX. The listing on OLX was not affected. You can reconnect later.'
+    else
+      redirect_to shop_product_path(@shop, @product), alert: 'Product is not connected to OLX.'
+    end
+  end
+
+  ##
+  # Bulk disconnect products from OLX without removing listings from OLX
+  #
+  def bulk_disconnect_from_olx
+    product_ids = params[:product_ids] || []
+
+    if product_ids.empty?
+      redirect_to shop_products_path(@shop), alert: 'No products selected.'
+      return
+    end
+
+    disconnected_count = 0
+    skipped_count = 0
+
+    @shop.products.where(id: product_ids).find_each do |product|
+      if product.olx_listing.present?
+        # Save the external listing ID to the product before deleting
+        if product.olx_listing.external_listing_id.present?
+          product.update_column(:olx_external_id, product.olx_listing.external_listing_id)
+        end
+        product.olx_listing.destroy
+        disconnected_count += 1
+        Rails.logger.info "[Products] Bulk: Disconnected product #{product.id} from OLX (local record only)"
+      else
+        skipped_count += 1
+      end
+    end
+
+    notice = "Disconnected #{disconnected_count} product(s) from OLX (local records only)."
+    notice += " #{skipped_count} skipped (not connected to OLX)." if skipped_count > 0
+    notice += " Listings on OLX were not affected. You can reconnect later."
+
+    redirect_to shop_products_path(@shop), notice: notice
   end
 
   ##

@@ -1,0 +1,59 @@
+<%#
+  Button Component - TailAdmin style
+  Usage:
+    render "shared/components/button", text: "Save", type: "primary"
+    render "shared/components/button", text: "Cancel", type: "secondary", tag: "a", href: back_path
+
+  Types: primary, secondary, danger, ghost
+  Sizes: sm, md, lg
+%>
+<%
+  text ||= ""
+  type ||= "primary"
+  size ||= "md"
+  tag ||= "button"
+  href ||= "#"
+  icon ||= nil
+  full_width ||= false
+  disabled ||= false
+  html_type ||= "button"  # For button tag: button, submit
+
+  base_classes = "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
+
+  type_classes = {
+    "primary" => "bg-primary text-white hover:bg-primary-dark focus:ring-primary/50",
+    "secondary" => "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark focus:ring-gray-500/30",
+    "danger" => "bg-danger text-white hover:bg-danger/90 focus:ring-danger/50",
+    "ghost" => "text-gray-700 hover:bg-gray-100 dark:text-bodydark1 dark:hover:bg-strokedark focus:ring-gray-500/30"
+  }
+
+  size_classes = {
+    "sm" => "px-3 py-1.5 text-xs",
+    "md" => "px-5 py-2.5 text-sm",
+    "lg" => "px-6 py-3 text-base"
+  }
+
+  classes = [
+    base_classes,
+    type_classes[type] || type_classes["primary"],
+    size_classes[size] || size_classes["md"],
+    full_width ? "w-full" : "",
+    disabled ? "opacity-50 cursor-not-allowed" : ""
+  ].join(" ")
+%>
+
+<% if tag == "a" %>
+  <a href="<%= href %>" class="<%= classes %>" <%= "disabled" if disabled %>>
+    <% if icon.present? %>
+      <%= icon %>
+    <% end %>
+    <%= text %>
+  </a>
+<% else %>
+  <button type="<%= html_type %>" class="<%= classes %>" <%= "disabled" if disabled %>>
+    <% if icon.present? %>
+      <%= icon %>
+    <% end %>
+    <%= text %>
+  </button>
+<% end %>
