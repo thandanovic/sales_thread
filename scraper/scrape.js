@@ -23,6 +23,11 @@ const SITE_URL = 'https://ba.e-cat.intercars.eu/bs/';
 const PRODUCT_URL = process.env.PRODUCT_URL;
 const MAX_PRODUCTS = parseInt(process.env.MAX_PRODUCTS) || 10;
 
+// Parse existing source_ids to skip re-scraping images/tech description
+const EXISTING_SOURCE_IDS = process.env.EXISTING_SOURCE_IDS
+  ? new Set(process.env.EXISTING_SOURCE_IDS.split(',').map(id => id.trim()).filter(id => id))
+  : new Set();
+
 // Setup logging to file
 const LOG_DIR = path.join(__dirname, 'logs');
 if (!fs.existsSync(LOG_DIR)) {
@@ -52,6 +57,7 @@ function logError(message, error) {
 async function scrapeProducts(username, password, productUrl) {
   log('🕷️  Starting Intercars Product Scraper (with Stealth Mode)...');
   log(`Log file: ${LOG_FILE}`);
+  log(`Existing source_ids to skip (fast mode): ${EXISTING_SOURCE_IDS.size}`);
 
   // Use parameters if provided, otherwise fall back to env
   const loginUsername = username || process.env.INTERCARS_USERNAME;
@@ -271,15 +277,43 @@ async function scrapeProducts(username, password, productUrl) {
 
       for (let i = 0; i < productsToProcess.length; i++) {
         const productData = productsToProcess[i];
-        log(`      [${scrapedCount + i + 1}/${MAX_PRODUCTS}] Processing: ${productData.title}`);
+        const sourceId = productData.source_id || productData.sku;
+        const isExisting = EXISTING_SOURCE_IDS.has(sourceId);
+
+        log(`      [${scrapedCount + i + 1}/${MAX_PRODUCTS}] Processing: ${productData.title}${isExisting ? ' [FAST MODE - existing]' : ''}`);
 
         try {
-          // Extract images using the imageContainerIndex stored during product extraction
-          // This ensures we click on the exact same container that corresponds to this product
-          const images = await extractImagesFromProductCard(page, productData.imageContainerIndex);
-          productData.images = images;
+          if (isExisting) {
+            // FAST MODE: Skip expensive image and tech description extraction
+            // Rails will preserve existing data for these products
+            log(`       ⚡ Skipping image/tech extraction (product exists in database)`);
+            productData.images = [];
+            productData.technical_description = null;
+            productData.models = null;
+            productData.reuse_existing = true;
+          } else {
+            // FULL MODE: Extract images and technical description for new products
+            // Extract images using the imageContainerIndex stored during product extraction
+            // This ensures we click on the exact same container that corresponds to this product
+            const images = await extractImagesFromProductCard(page, productData.imageContainerIndex);
+            productData.images = images;
 
-          log(`       ✓ Extracted ${images.length} images without leaving listing page`);
+            log(`       ✓ Extracted ${images.length} images without leaving listing page`);
+
+            // Extract technical description by clicking "Više informacija" button
+            const techData = await extractTechnicalDescription(page, productData.imageContainerIndex);
+            productData.technical_description = techData.technical_description;
+            productData.models = techData.models;
+
+            if (techData.technical_description) {
+              log(`       ✓ Extracted technical description`);
+            }
+            if (techData.models) {
+              log(`       ✓ Extracted models: ${techData.models.substring(0, 50)}...`);
+            }
+
+            productData.reuse_existing = false;
+          }
 
           // Remove the temporary imageContainerIndex before saving
           delete productData.imageContainerIndex;
@@ -290,6 +324,7 @@ async function scrapeProducts(username, password, productUrl) {
           logError(`Failed to extract images for product ${i}`, error);
           // Still add product without images
           productData.images = [];
+          productData.reuse_existing = isExisting;
 
           // Remove the temporary imageContainerIndex before saving
           delete productData.imageContainerIndex;
@@ -298,9 +333,9 @@ async function scrapeProducts(username, password, productUrl) {
           scrapedCount++;
         }
 
-        // Small delay between products
+        // Small delay between products (shorter for fast mode)
         if (i < productsToProcess.length - 1) {
-          await page.waitForTimeout(500);
+          await page.waitForTimeout(isExisting ? 100 : 500);
         }
       }
 
@@ -469,6 +504,10 @@ async function extractProductsFromListingPage(page) {
         brand = titleParts[1];
       }
 
+      // Extract subtitle/B2BName (product category description)
+      // This is found in the same product card as the title
+      let subTitle = null;
+
       // Extract specs/description from productAttributes section
       let description = null;
       let specs = {};
@@ -479,6 +518,13 @@ async function extractProductsFromListingPage(page) {
       for (let i = 0; i < 15; i++) {
         productCard = productCard.parentElement;
         if (!productCard) break;
+
+        // Extract subtitle/B2BName from this product card
+        const subTitleEl = productCard.querySelector('[data-testid="B2BName-new"]');
+        if (subTitleEl && !subTitle) {
+          subTitle = subTitleEl.textContent.trim();
+          console.log(`[EXTRACTION] Found subtitle for product ${realProductIndex}: ${subTitle}`);
+        }
 
         const attrsContainer = productCard.querySelector('[data-testid="productAttributes"]');
         if (attrsContainer) {
@@ -523,6 +569,7 @@ async function extractProductsFromListingPage(page) {
 
       console.log(`[EXTRACTION] Product ${realProductIndex} fields:`);
       console.log(`[EXTRACTION]   - Title: ${title}`);
+      console.log(`[EXTRACTION]   - Subtitle: ${subTitle || 'NOT FOUND'}`);
       console.log(`[EXTRACTION]   - SKU: ${sku}`);
       console.log(`[EXTRACTION]   - Brand: ${brand || 'NOT FOUND'}`);
       console.log(`[EXTRACTION]   - Price: ${price || 'NOT FOUND'} ${currency}`);
@@ -565,6 +612,7 @@ async function extractProductsFromListingPage(page) {
           source: 'intercars',
           scraped_at: new Date().toISOString(),
           title,
+          sub_title: subTitle || null,
           url,
           sku,
           source_id: sku,
@@ -881,6 +929,165 @@ async function extractImagesFromProductCard(page, containerIndex) {
     logError(`[IMG] FATAL ERROR extracting images for product ${productIndex}`, error);
     logError(`[IMG] Stack trace:`, error);
     return [];
+  }
+}
+
+/**
+ * Extract technical description by clicking "Više informacija" button
+ * Also extracts models from the technical description (text after "odgovara:")
+ *
+ * @param page - Playwright page object
+ * @param containerIndex - The index of the product card container
+ * @returns {Object} { technical_description, models }
+ */
+async function extractTechnicalDescription(page, containerIndex) {
+  try {
+    log(`       [TECH] Extracting technical description for container ${containerIndex}...`);
+
+    if (containerIndex === -1) {
+      log(`       [TECH] Container index is -1, skipping technical description extraction`);
+      return { technical_description: null, models: null };
+    }
+
+    // Get all product cards on the page - need to find the expand button within the right product
+    const allProductCards = await page.locator('[data-testid="productIndexLink"]').all();
+
+    if (containerIndex >= allProductCards.length) {
+      log(`       [TECH] Container index ${containerIndex} out of bounds (${allProductCards.length} products)`);
+      return { technical_description: null, models: null };
+    }
+
+    // Find the product card container by traversing up from the product link
+    const productLink = allProductCards[containerIndex];
+
+    // Navigate up to find the parent container that has the expand button
+    // The expand button is in the same row/card as the product link
+    const expandButton = page.locator('[data-testid="expandButton-MoreInfo"]').nth(containerIndex);
+    const expandButtonCount = await expandButton.count();
+
+    if (expandButtonCount === 0) {
+      log(`       [TECH] No "Više informacija" button found for this product`);
+      return { technical_description: null, models: null };
+    }
+
+    log(`       [TECH] Found expand button, clicking...`);
+
+    // Scroll the button into view first
+    await expandButton.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(300);
+
+    // Click to expand
+    await expandButton.click();
+    await page.waitForTimeout(1500);
+
+    // Wait for the expanded section to appear - it should be visible now after clicking
+    // The expanded section appears as a child/sibling of the clicked product row
+    await page.waitForSelector('[data-testid="productAdditionalInfo"]', { timeout: 3000 }).catch(() => {});
+
+    // Extract the technical description text - look for the VISIBLE expanded section
+    // Since only one section is expanded at a time, we find the one that's currently visible
+    const techDescData = await page.evaluate(() => {
+      // Find all expanded sections - there should only be one visible at a time
+      const expandedSections = document.querySelectorAll('[data-testid="productAdditionalInfo"]');
+
+      // Find the visible/expanded section (check if it's inside an expanded-section container)
+      let section = null;
+      for (const sec of expandedSections) {
+        // Check if this section is visible (has dimensions)
+        const rect = sec.getBoundingClientRect();
+        if (rect.height > 0 && rect.width > 0) {
+          section = sec;
+          break;
+        }
+      }
+
+      if (!section) {
+        console.log('[TECH] No visible expanded section found');
+        return { technical_description: null, models: null };
+      }
+
+      // Look for "Tehnički opis" section
+      let technicalDescription = null;
+      let models = null;
+
+      // Strategy 1: Find the "Tehnički opis" label and get its sibling content
+      // Structure: <div>Tehnički opis</div><div class="cOZxao"><div class="klTUHd">ACTUAL TEXT</div></div>
+      const allDivs = section.querySelectorAll('div');
+      for (const div of allDivs) {
+        // Check if this div contains exactly "Tehnički opis" as its direct text
+        if (div.childNodes.length === 1 &&
+            div.childNodes[0].nodeType === Node.TEXT_NODE &&
+            div.textContent.trim() === 'Tehnički opis') {
+
+          // Found the label, now get the sibling container with the actual description
+          const nextSibling = div.nextElementSibling;
+          if (nextSibling) {
+            // The description is in a nested div (class klTUHd inside cOZxao)
+            const innerDiv = nextSibling.querySelector('div');
+            if (innerDiv) {
+              technicalDescription = innerDiv.textContent.trim();
+            } else {
+              technicalDescription = nextSibling.textContent.trim();
+            }
+            console.log('[TECH] Found via label sibling:', technicalDescription.substring(0, 100));
+            break;
+          }
+        }
+      }
+
+      // Strategy 2: If not found, try finding by class structure
+      if (!technicalDescription) {
+        // Look for div.cOZxao containing div.klTUHd
+        const cOZxaoDiv = section.querySelector('.cOZxao');
+        if (cOZxaoDiv) {
+          const klTUHdDiv = cOZxaoDiv.querySelector('.klTUHd');
+          if (klTUHdDiv) {
+            technicalDescription = klTUHdDiv.textContent.trim();
+            console.log('[TECH] Found via class structure:', technicalDescription.substring(0, 100));
+          }
+        }
+      }
+
+      // Strategy 3: Last resort - find any text containing "odgovara:"
+      if (!technicalDescription) {
+        for (const div of allDivs) {
+          const text = div.textContent.trim();
+          if (text.includes('odgovara:') && !text.includes('Tehnički opis') && !text.includes('TecDoc')) {
+            technicalDescription = text;
+            console.log('[TECH] Found via odgovara search:', technicalDescription.substring(0, 100));
+            break;
+          }
+        }
+      }
+
+      // Extract models from technical description (text after "odgovara:")
+      if (technicalDescription) {
+        const odgovaraMatch = technicalDescription.match(/odgovara:\s*(.+)$/i);
+        if (odgovaraMatch) {
+          models = odgovaraMatch[1].trim();
+          console.log('[TECH] Extracted models:', models);
+        }
+      }
+
+      return { technical_description: technicalDescription, models: models };
+    });
+
+    log(`       [TECH] Technical description: ${techDescData.technical_description ? 'FOUND (' + techDescData.technical_description.substring(0, 50) + '...)' : 'NOT FOUND'}`);
+    log(`       [TECH] Models: ${techDescData.models ? techDescData.models.substring(0, 50) + '...' : 'NOT FOUND'}`);
+
+    // Click to collapse the section
+    try {
+      await expandButton.click();
+      await page.waitForTimeout(500);
+    } catch (e) {
+      // Ignore collapse errors
+    }
+
+    return techDescData;
+
+  } catch (error) {
+    logError(`[TECH] Error extracting technical description`, error);
+    return { technical_description: null, models: null };
   }
 }
 

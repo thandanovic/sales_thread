@@ -177,6 +177,7 @@ class ScraperService
             error_text: e.message
           )
           import_log.increment!(:failed_rows)
+          import_log.increment!(:processed_rows)
         end
       end
     end
@@ -187,6 +188,16 @@ class ScraperService
       total: products_data.length,
       errors: errors
     }
+  end
+
+  ##
+  # Get existing source_ids for a shop to skip re-scraping
+  #
+  # @param shop [Shop] Shop to query
+  # @return [Array<String>] List of existing source_ids
+  #
+  def self.existing_source_ids(shop)
+    shop.products.where(source: 'intercars').pluck(:source_id).compact
   end
 
   ##
@@ -214,13 +225,24 @@ class ScraperService
       }
     end
 
-    # Scrape with credentials
-    scrape_result = scrape_products(
+    # Update import log to scraping phase
+    if import_log.present?
+      import_log.update!(current_phase: 'scraping', scraped_count: 0)
+    end
+
+    # Get existing source_ids to skip re-scraping images/tech description
+    existing_ids = existing_source_ids(shop)
+    logger.info "Found #{existing_ids.length} existing products - will skip image/tech scraping for these"
+
+    # Scrape with credentials and progress tracking
+    scrape_result = scrape_products_with_progress(
       max_products: max_products,
       username: username,
       password: password,
       product_url: product_url,
-      headless: true
+      headless: true,
+      import_log: import_log,
+      existing_source_ids: existing_ids
     )
 
     unless scrape_result[:success]
@@ -233,12 +255,22 @@ class ScraperService
       }
     end
 
+    # Update to importing phase
+    if import_log.present?
+      import_log.update!(current_phase: 'importing', total_rows: scrape_result[:count])
+    end
+
     # Import
     import_result = import_from_json(
       scrape_result[:file],
       shop,
       import_log: import_log
     )
+
+    # Mark as complete
+    if import_log.present?
+      import_log.update!(current_phase: 'completed')
+    end
 
     {
       success: true,
@@ -249,6 +281,77 @@ class ScraperService
       errors: import_result[:errors],
       file: scrape_result[:file]
     }
+  end
+
+  ##
+  # Scrape products with progress tracking
+  # Monitors the scraper log file to update progress in import_log
+  #
+  def self.scrape_products_with_progress(max_products:, username:, password:, product_url:, headless:, import_log: nil, existing_source_ids: [])
+    ensure_setup!
+
+    logger.info "=" * 80
+    logger.info "Starting product scrape (max: #{max_products})"
+    logger.info "Product URL: #{product_url}" if product_url
+    logger.info "Headless: #{headless}"
+    logger.info "Existing source_ids to skip: #{existing_source_ids.length}"
+
+    # Set environment with all needed variables
+    env_vars = { MAX_PRODUCTS: max_products, HEADLESS: headless }
+    env_vars[:INTERCARS_USERNAME] = username if username
+    env_vars[:INTERCARS_PASSWORD] = password if password
+    env_vars[:PRODUCT_URL] = product_url if product_url
+
+    # Pass existing source_ids to skip re-scraping (comma-separated)
+    if existing_source_ids.any?
+      env_vars[:EXISTING_SOURCE_IDS] = existing_source_ids.join(',')
+    end
+
+    update_env(env_vars)
+
+    # Execute with progress monitoring
+    result = execute_script_with_progress('scrape', timeout: max_products * 30, import_log: import_log, max_products: max_products)
+
+    if result[:success]
+      # Find the latest products JSON file
+      json_file = latest_products_file
+
+      if json_file
+        products = JSON.parse(File.read(json_file))
+        logger.info "✓ Scraped #{products.length} products successfully"
+        logger.info "JSON file: #{json_file}"
+
+        # Log extraction stats
+        with_images = products.count { |p| p['images']&.any? }
+        with_specs = products.count { |p| p['specs'].present? }
+        with_brand = products.count { |p| p['brand'].present? }
+
+        logger.info "Extraction stats:"
+        logger.info "  - Products with images: #{with_images}/#{products.length}"
+        logger.info "  - Products with specs: #{with_specs}/#{products.length}"
+        logger.info "  - Products with brand: #{with_brand}/#{products.length}"
+
+        {
+          success: true,
+          products: products,
+          file: json_file.to_s,
+          count: products.length
+        }
+      else
+        logger.error "Scraping completed but no data file found"
+        {
+          success: false,
+          message: 'Scraping completed but no data file found'
+        }
+      end
+    else
+      logger.error "Scraping failed: #{result[:error]}"
+      {
+        success: false,
+        message: result[:error],
+        output: result[:output]
+      }
+    end
   end
 
   ##
@@ -360,6 +463,115 @@ class ScraperService
     end
   end
 
+  ##
+  # Execute script with progress monitoring
+  # Parses output to track scraping progress and updates import_log
+  #
+  def self.execute_script_with_progress(script_name, timeout: 120, import_log: nil, max_products: 10)
+    script_file = SCRAPER_DIR.join("#{script_name}.js")
+
+    unless script_file.exist?
+      return { success: false, error: "Script not found: #{script_name}.js" }
+    end
+
+    cmd = "cd #{SCRAPER_DIR} && node #{script_name}.js"
+
+    output = []
+    error_output = []
+    success = false
+    last_progress_update = Time.now
+    last_scraped_count = 0
+
+    begin
+      Open3.popen3(cmd) do |stdin, stdout, stderr, wait_thr|
+        stdin.close
+
+        # Collect output with timeout
+        timeout_at = Time.now + timeout
+
+        until stdout.eof? && stderr.eof?
+          if Time.now > timeout_at
+            # Kill the process on timeout
+            Process.kill('TERM', wait_thr.pid) rescue nil
+            if import_log.present?
+              import_log.update!(
+                status: 'failed',
+                completed_at: Time.current,
+                error_messages: ["Scraper timed out after #{timeout} seconds. Last progress: #{last_scraped_count}/#{max_products} products scraped."].to_json
+              )
+            end
+            return { success: false, error: "Scraper timed out after #{timeout} seconds" }
+          end
+
+          if IO.select([stdout, stderr], nil, nil, 1)
+            begin
+              if stdout.ready?
+                chunk = stdout.read_nonblock(4096)
+                output << chunk
+
+                # Parse progress from output (looking for "[X/Y] Processing:" pattern)
+                chunk.scan(/\[(\d+)\/(\d+)\] Processing:/) do |current, total|
+                  scraped = current.to_i
+                  if import_log.present? && scraped > last_scraped_count
+                    last_scraped_count = scraped
+                    last_progress_update = Time.now
+                    import_log.update!(scraped_count: scraped)
+                  end
+                end
+              end
+            rescue EOFError, IO::WaitReadable
+            end
+
+            begin
+              error_output << stderr.read_nonblock(4096) if stderr.ready?
+            rescue EOFError, IO::WaitReadable
+            end
+          end
+
+          # Check for stalled scraper (no progress for 5 minutes)
+          if import_log.present? && (Time.now - last_progress_update) > 300
+            Process.kill('TERM', wait_thr.pid) rescue nil
+            import_log.update!(
+              status: 'failed',
+              completed_at: Time.current,
+              error_messages: ["Scraper stalled - no progress for 5 minutes. Last progress: #{last_scraped_count}/#{max_products} products scraped."].to_json
+            )
+            return { success: false, error: "Scraper stalled - no progress for 5 minutes" }
+          end
+        end
+
+        exit_status = wait_thr.value
+        success = exit_status.success?
+      end
+
+      full_output = (output + error_output).join
+
+      if success
+        { success: true, output: full_output }
+      else
+        error_msg = 'Script execution failed'
+        if import_log.present?
+          import_log.update!(
+            status: 'failed',
+            completed_at: Time.current,
+            error_messages: ["#{error_msg}. Scraped #{last_scraped_count}/#{max_products} products before failure."].to_json
+          )
+        end
+        { success: false, error: error_msg, output: full_output }
+      end
+
+    rescue => e
+      if import_log.present?
+        import_log.update!(
+          status: 'failed',
+          completed_at: Time.current,
+          error_messages: ["Scraper error: #{e.message}"].to_json
+        )
+      end
+      { success: false, error: e.message, output: '' }
+    end
+  end
+
   def self.create_env_file(username:, password:, headless: true)
     env_content = <<~ENV
       INTERCARS_USERNAME=#{username}
@@ -402,15 +614,23 @@ class ScraperService
       source_id: source_id
     )
 
-    # Check if this is an update
+    # Check if this is an update and if we should reuse existing data
     is_update = product.persisted?
-    logger.info "  Action: #{is_update ? 'UPDATE' : 'CREATE'}"
+    reuse_existing = product_data['reuse_existing'] == true
+
+    if reuse_existing && is_update
+      logger.info "  Action: FAST UPDATE (preserving images/tech description)"
+    else
+      logger.info "  Action: #{is_update ? 'UPDATE' : 'CREATE'}"
+    end
 
     # Default price to 0 if not present
     price = product_data['price'] || 0.0
 
+    # Build attributes - for reuse_existing, preserve certain fields
     attrs = {
       title: product_data['title'],
+      sub_title: product_data['sub_title'],
       sku: product_data['sku'],
       brand: product_data['brand'],
       price: price,
@@ -419,16 +639,29 @@ class ScraperService
       quantity: product_data['quantity'],
       description: product_data['description'],
       specs: product_data['specs']&.to_json,
-      image_urls: product_data['images'],
       import_source: 'intercars',
       refreshed_at: Time.current
     }
 
+    # For reuse_existing mode, preserve technical_description, models, and images
+    if reuse_existing && is_update
+      # Don't overwrite these fields - keep existing values
+      logger.info "  Preserving existing: technical_description, models, images"
+    else
+      # Full import - include technical description and models
+      attrs[:technical_description] = product_data['technical_description']
+      attrs[:models] = product_data['models']
+      attrs[:image_urls] = product_data['images']
+    end
+
     # Log what we're importing
+    logger.info "  Sub-title: #{product_data['sub_title'] || 'MISSING'}"
     logger.info "  Brand: #{product_data['brand'] || 'MISSING'}"
     logger.info "  Price: #{price} #{product_data['currency'] || 'BAM'}"
-    logger.info "  Images: #{product_data['images']&.length || 0}"
+    logger.info "  Images: #{reuse_existing ? 'PRESERVED' : (product_data['images']&.length || 0)}"
     logger.info "  Description: #{product_data['description'] ? 'YES' : 'NO'}"
+    logger.info "  Technical Description: #{reuse_existing ? 'PRESERVED' : (product_data['technical_description'] ? 'YES' : 'NO')}"
+    logger.info "  Models: #{reuse_existing ? 'PRESERVED' : (product_data['models'] || 'NONE')}"
     logger.info "  Specs: #{product_data['specs'] ? 'YES' : 'NO'}"
 
     # Assign OLX category template if import log has one
@@ -439,8 +672,10 @@ class ScraperService
     product.assign_attributes(attrs)
     product.save!
 
-    # Download and attach images - clear old images first if updating
-    if product_data['images'].present?
+    # Download and attach images - skip for reuse_existing mode
+    if reuse_existing && is_update
+      logger.info "  ⚡ Skipping image download (reuse_existing mode)"
+    elsif product_data['images'].present?
       logger.info "  Downloading #{product_data['images'].length} images..."
       product.images.purge if is_update && product.images.attached?
       download_images(product, product_data['images'])
@@ -449,10 +684,11 @@ class ScraperService
     end
 
     # Update import log if provided
-    import_log&.increment!(:successful_rows)
-
-    # Create ImportedProduct record for tracking
     if import_log.present?
+      import_log.increment!(:successful_rows)
+      import_log.increment!(:processed_rows)
+
+      # Create ImportedProduct record for tracking
       ImportedProduct.create!(
         shop: shop,
         import_log: import_log,

@@ -294,8 +294,12 @@ class OlxListingService
     product.auto_populate_olx_fields
     product.save if product.changed?
 
+    # OLX has a 65 character limit for titles
+    raw_title = product.olx_title.presence || product.title
+    truncated_title = raw_title.to_s.truncate(65, omission: '')
+
     payload = {
-      title: product.olx_title.presence || product.title,
+      title: truncated_title,
       description: product.olx_description.presence || build_description,
       price: (product.final_price || product.price).to_f.round(0),
       category_id: @template.olx_category.external_id,
@@ -512,6 +516,12 @@ class OlxListingService
         value = resolve_attribute_value(mapping)
         next if value.blank?
 
+        # Try to match value against attribute options if available
+        if attr_def.options.present?
+          value = match_attribute_option(value, attr_def.options)
+        end
+        next if value.blank?
+
         # Clean numeric values for number-type attributes
         if attr_def.attribute_type == 'number' && value.is_a?(String)
           # Extract just the numeric value (e.g., "77.0 Ah" -> "77")
@@ -538,11 +548,38 @@ class OlxListingService
   ##
   # Resolve attribute value from mapping rule
   #
-  # @param mapping [String] Mapping rule (e.g., "product.brand", "fixed:New", "template.default_state", "extract:width")
+  # @param mapping [String] Mapping rule (e.g., "product.brand", "fixed:New", "template.default_state", "extract:width", "{boja}")
   # @return [String, nil] Resolved value
   #
   def resolve_attribute_value(mapping)
     return nil if mapping.blank?
+
+    # Handle fallback syntax: {placeholder} | fallback_value
+    # e.g., "{Boja} | Neutralna" means use Boja from specs, or "Neutralna" if not found
+    if mapping.include?('|')
+      parts = mapping.split('|').map(&:strip)
+      parts.each do |part|
+        value = resolve_single_value(part)
+        return value if value.present?
+      end
+      return nil
+    end
+
+    resolve_single_value(mapping)
+  end
+
+  ##
+  # Resolve a single value (without fallback chain)
+  #
+  def resolve_single_value(mapping)
+    return nil if mapping.blank?
+
+    # Handle placeholder syntax like {boja}, {strana_ugradnje}
+    # This extracts value from product specs using the placeholder name
+    if mapping =~ /^\{([^\}]+)\}$/
+      placeholder = $1
+      return resolve_spec_placeholder(placeholder)
+    end
 
     # Handle fixed values
     if mapping.start_with?('fixed:')
@@ -567,9 +604,147 @@ class OlxListingService
       return extract_from_description(keyword)
     end
 
-    nil
+    # If nothing else matched, treat as a plain text value (for fallbacks like "Neutralna")
+    mapping
   rescue StandardError => e
     Rails.logger.warn "[OLX Listing] Failed to resolve attribute mapping '#{mapping}': #{e.message}"
+    nil
+  end
+
+  ##
+  # Resolve a placeholder to a value from product fields or specs
+  # Supports snake_case placeholders matching spec keys with spaces/special chars
+  # e.g., {boja} matches "Boja", {strana_ugradnje} matches "Strana ugradnje"
+  # Also supports direct product fields like {models}, {technical_description}, {sub_title}
+  #
+  # @param placeholder [String] The placeholder name without braces
+  # @return [String, nil] The resolved value or nil
+  #
+  def resolve_spec_placeholder(placeholder)
+    # First try direct product field mapping
+    product_field_value = resolve_product_field(placeholder)
+    if product_field_value.present?
+      Rails.logger.info "[OLX Listing] Resolved placeholder {#{placeholder}} -> '#{product_field_value}' (product field)"
+      return product_field_value
+    end
+
+    # Then try specs lookup
+    return nil unless product.specs.present?
+
+    specs_hash = JSON.parse(product.specs) rescue {}
+    return nil if specs_hash.empty?
+
+    # Normalize placeholder for comparison
+    normalized_placeholder = normalize_key(placeholder)
+
+    # Try to find matching spec key
+    specs_hash.each do |key, value|
+      normalized_key = normalize_key(key)
+      if normalized_key == normalized_placeholder
+        Rails.logger.info "[OLX Listing] Resolved placeholder {#{placeholder}} -> '#{value}' (matched key: #{key})"
+        return value
+      end
+    end
+
+    Rails.logger.warn "[OLX Listing] Could not resolve placeholder {#{placeholder}} - no matching spec found in: #{specs_hash.keys.join(', ')}"
+    nil
+  end
+
+  ##
+  # Resolve a placeholder to a direct product field value
+  #
+  # @param placeholder [String] The placeholder name
+  # @return [String, nil] The field value or nil
+  #
+  def resolve_product_field(placeholder)
+    case placeholder.downcase
+    when 'title', 'naslov'
+      product.title
+    when 'sub_title', 'subtitle', 'podnaslov'
+      product.sub_title
+    when 'brand', 'brend'
+      product.brand
+    when 'sku', 'sifra'
+      product.sku
+    when 'category', 'kategorija'
+      product.category
+    when 'technical_description', 'tehnicki_opis'
+      product.technical_description
+    when 'models', 'modeli', 'odgovara'
+      product.models
+    when 'description', 'opis'
+      product.description
+    else
+      nil
+    end
+  end
+
+  ##
+  # Normalize a key for comparison (lowercase, replace underscores with spaces, remove accents)
+  #
+  # @param key [String] The key to normalize
+  # @return [String] Normalized key
+  #
+  def normalize_key(key)
+    key.to_s
+       .downcase
+       .gsub('_', ' ')
+       .gsub('č', 'c').gsub('ć', 'c')
+       .gsub('š', 's').gsub('ž', 'z')
+       .gsub('đ', 'd')
+       .strip
+  end
+
+  ##
+  # Match a value against OLX attribute options using fuzzy matching
+  # Handles cases like "Desno" matching "Desni", "Lijevo" matching "Lijevi"
+  #
+  # @param value [String] The value to match
+  # @param options [String, Array] The available options (JSON string or array)
+  # @return [String, nil] The matched option or nil
+  #
+  def match_attribute_option(value, options)
+    return value if value.blank?
+
+    # Parse options if it's a JSON string
+    opts = options.is_a?(String) ? (JSON.parse(options) rescue []) : options
+    return value if opts.empty?
+
+    value_str = value.to_s.strip
+    normalized_value = normalize_key(value_str)
+
+    # Try exact match first
+    exact_match = opts.find { |o| o.to_s.strip == value_str }
+    return exact_match if exact_match
+
+    # Try case-insensitive match
+    case_match = opts.find { |o| o.to_s.strip.downcase == value_str.downcase }
+    return case_match if case_match
+
+    # Try normalized match (handles accents)
+    normalized_match = opts.find { |o| normalize_key(o) == normalized_value }
+    return normalized_match if normalized_match
+
+    # Try prefix/stem matching for Bosnian/Croatian word endings
+    # e.g., "Desno" -> "Desni", "Lijevo" -> "Lijevi", "Crno" -> "Crna"
+    stem_match = opts.find do |o|
+      opt_normalized = normalize_key(o)
+      # Check if they share at least 3 chars in common and differ only in ending
+      if normalized_value.length >= 3 && opt_normalized.length >= 3
+        # Use first 3 chars as stem to handle gender variations (crno/crna, bijelo/bijela)
+        stem_length = [normalized_value.length - 1, opt_normalized.length - 1, 3].min
+        common_stem = normalized_value[0...stem_length]
+        opt_stem = opt_normalized[0...stem_length]
+        common_stem == opt_stem
+      end
+    end
+    return stem_match if stem_match
+
+    # Try contains match as last resort
+    contains_match = opts.find { |o| normalize_key(o).include?(normalized_value) || normalized_value.include?(normalize_key(o)) }
+    return contains_match if contains_match
+
+    Rails.logger.warn "[OLX Listing] Could not match value '#{value}' to options: #{opts.join(', ')}"
     nil
   end
 
