@@ -66,6 +66,17 @@
       </div>
 
       <div>
+        <%= form.label :description_template, "OLX Description Template", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+        <%= form.text_area :description_template, rows: 4, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors", placeholder: "e.g., {technical_description}\n\nModels: {models}" %>
+        <p class="mt-2 text-xs text-gray-500 dark:text-bodydark2">
+          Use placeholders to build the OLX description. Leave empty to use the product's description field.
+        </p>
+        <p class="mt-1 text-xs text-gray-400 dark:text-bodydark2">
+          <strong>Available placeholders:</strong> {description}, {technical_description}, {models}, {brand}, {sku}, {title}, {sub_title}, and any spec like {brend}
+        </p>
+      </div>
+
+      <div>
         <%= form.label :olx_category_id, "OLX Category", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
         <%= form.select :olx_category_id,
             options_from_collection_for_select(@categories, :id, :full_path, template.olx_category_id),

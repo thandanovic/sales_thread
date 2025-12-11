@@ -124,12 +124,18 @@ class Product < ApplicationRecord
         extract_spec_value('Brend') || brand.to_s
       when 'title', 'naslov'
         title.to_s
+      when 'sub_title', 'subtitle', 'podnaslov'
+        sub_title.to_s  # Product subtitle/category from Intercars B2BName
       when 'sku', 'sifra'
         sku.to_s
       when 'category', 'kategorija'
         category.to_s
       when 'price', 'cijena', 'cena'
         final_price.present? ? "#{final_price} #{currency}" : price.to_s
+      when 'technical_description', 'tehnicki_opis'
+        technical_description.to_s
+      when 'models', 'modeli', 'odgovara'
+        models.to_s
       else
         # Try to extract from specs using the placeholder as a spec key
         # Supports both snake_case and exact matches
@@ -142,12 +148,74 @@ class Product < ApplicationRecord
   end
 
   ##
-  # Generate OLX description from product data filtered by template
+  # Generate OLX description from template or filtered product data
+  #
+  # Priority:
+  # 1. Use description_template if defined (with placeholder replacement)
+  # 2. Use description_filter to filter existing description
+  # 3. Fall back to raw description
   #
   # @return [String] The generated description
   #
   def generate_olx_description
-    return description unless olx_category_template&.description_filter.present?
+    # Priority 1: Use description_template if defined
+    if olx_category_template&.description_template.present?
+      return generate_description_from_template
+    end
+
+    # Priority 2: Use description_filter if defined
+    if olx_category_template&.description_filter.present?
+      return filter_description_by_template
+    end
+
+    # Priority 3: Return raw description
+    description
+  end
+
+  ##
+  # Generate description from template using placeholder replacement
+  #
+  # @return [String] The generated description
+  #
+  def generate_description_from_template
+    template = olx_category_template.description_template
+
+    # Replace placeholders with actual values
+    template.gsub(/\{([^\}]+)\}/) do |match|
+      placeholder = $1
+      case placeholder.downcase
+      when 'brand', 'brend'
+        brand.to_s
+      when 'title', 'naslov'
+        title.to_s
+      when 'sub_title', 'subtitle', 'podnaslov'
+        sub_title.to_s
+      when 'sku', 'sifra'
+        sku.to_s
+      when 'category', 'kategorija'
+        category.to_s
+      when 'price', 'cijena', 'cena'
+        final_price.present? ? "#{final_price} #{currency}" : price.to_s
+      when 'technical_description', 'tehnicki_opis'
+        technical_description.to_s
+      when 'models', 'modeli', 'odgovara'
+        models.to_s
+      when 'description', 'opis'
+        # Apply description_filter if defined, otherwise use raw description
+        filter_description_by_template
+      else
+        # Try to extract from specs using the placeholder as a spec key
+        extract_spec_by_placeholder(placeholder) || match
+      end
+    end
+  end
+
+  ##
+  # Filter description using description_filter from template
+  #
+  # @return [String] The filtered description
+  #
+  def filter_description_by_template
     return description unless description.present?
 
     allowed_fields = olx_category_template.description_filter.reject(&:blank?)
@@ -235,6 +303,50 @@ class Product < ApplicationRecord
 
     self.olx_title = generate_olx_title
     self.olx_description = generate_olx_description
+  end
+
+  ##
+  # Generate preview of OLX attributes that will be sent
+  # Returns array of hashes with name, value, and status (resolved/missing)
+  #
+  # @return [Array<Hash>] Array of attribute previews
+  #
+  def preview_olx_attributes
+    return [] unless olx_category_template.present?
+
+    service = OlxListingService.new(self)
+    attributes = service.send(:build_category_attributes)
+
+    # Get category attribute definitions for names
+    category_attrs = olx_category_template.olx_category.olx_category_attributes
+
+    previews = []
+
+    # First add resolved attributes
+    attributes.each do |attr|
+      attr_def = category_attrs.find { |a| a.external_id == attr[:id] }
+      previews << {
+        id: attr[:id],
+        name: attr_def&.name || "Unknown (#{attr[:id]})",
+        value: attr[:value],
+        required: attr_def&.required || false,
+        status: 'resolved'
+      }
+    end
+
+    # Then add missing required attributes
+    category_attrs.where(required: true).each do |attr_def|
+      next if previews.any? { |p| p[:id] == attr_def.external_id }
+      previews << {
+        id: attr_def.external_id,
+        name: attr_def.name,
+        value: nil,
+        required: true,
+        status: 'missing'
+      }
+    end
+
+    previews.sort_by { |p| [p[:status] == 'missing' ? 0 : 1, p[:name]] }
   end
 
   ##

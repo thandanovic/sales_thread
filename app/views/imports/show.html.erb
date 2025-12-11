@@ -55,31 +55,104 @@
       </div>
     </div>
 
-    <% if @import.status == 'pending' %>
-      <%= button_to "Start Processing", start_processing_shop_import_path(@shop, @import), method: :post, class: "inline-flex items-center gap-2 rounded-lg bg-success px-5 py-2.5 text-sm font-medium text-white hover:bg-success/90 transition-colors" %>
-    <% end %>
+    <div class="flex items-center gap-3">
+      <% if @import.status == 'pending' %>
+        <%= button_to "Start Processing", start_processing_shop_import_path(@shop, @import), method: :post, class: "inline-flex items-center gap-2 rounded-lg bg-success px-5 py-2.5 text-sm font-medium text-white hover:bg-success/90 transition-colors" %>
+      <% end %>
+
+      <% if @import.source == 'intercars' && %w[completed completed_with_errors failed].include?(@import.status) %>
+        <%= button_to retry_import_shop_import_path(@shop, @import), method: :post, data: { turbo_confirm: "Are you sure you want to re-run this import? This will clear all previously imported products from this import and scrape again." }, class: "inline-flex items-center gap-2 rounded-lg bg-info px-5 py-2.5 text-sm font-medium text-white hover:bg-info/90 transition-colors" do %>
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Re-run Import
+        <% end %>
+      <% end %>
+    </div>
   </div>
 
+  <%# Progress Section (only show when processing) %>
+  <% if @import.status == 'processing' %>
+    <div class="mb-6" id="progress-section">
+      <%# Current Phase Indicator %>
+      <div class="flex items-center gap-4 mb-4">
+        <div class="flex items-center gap-2">
+          <div id="phase-scraping-indicator" class="h-3 w-3 rounded-full <%= @import.current_phase == 'scraping' ? 'bg-info animate-pulse' : (@import.current_phase == 'importing' || @import.current_phase == 'completed' ? 'bg-success' : 'bg-gray-300') %>"></div>
+          <span id="phase-scraping-text" class="text-sm <%= @import.current_phase == 'scraping' ? 'font-semibold text-info' : 'text-gray-500 dark:text-bodydark2' %>">
+            1. Scraping
+            <span id="scraped-count" class="<%= @import.current_phase == 'scraping' ? '' : 'hidden' %>">(<%= @import.scraped_count || 0 %>/<%= @import.total_rows || 0 %>)</span>
+          </span>
+        </div>
+        <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <div class="flex items-center gap-2">
+          <div id="phase-importing-indicator" class="h-3 w-3 rounded-full <%= @import.current_phase == 'importing' ? 'bg-info animate-pulse' : (@import.current_phase == 'completed' ? 'bg-success' : 'bg-gray-300') %>"></div>
+          <span id="phase-importing-text" class="text-sm <%= @import.current_phase == 'importing' ? 'font-semibold text-info' : 'text-gray-500 dark:text-bodydark2' %>">
+            2. Importing
+            <span id="imported-count" class="<%= @import.current_phase == 'importing' ? '' : 'hidden' %>">(<%= @import.processed_rows || 0 %>/<%= @import.total_rows || 0 %>)</span>
+          </span>
+        </div>
+      </div>
+
+      <%# Progress Bar %>
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-medium text-gray-700 dark:text-bodydark1" id="progress-label">
+          <%= case @import.current_phase
+              when 'scraping' then 'Scraping products from Intercars...'
+              when 'importing' then 'Importing products to database...'
+              else 'Processing...'
+              end %>
+        </span>
+        <span class="text-sm font-medium text-info" id="progress-text">
+          <% if @import.current_phase == 'scraping' %>
+            <span id="current-count"><%= @import.scraped_count || 0 %></span> / <span id="total-count"><%= @import.total_rows || 0 %></span> scraped
+          <% else %>
+            <span id="current-count"><%= @import.processed_rows || 0 %></span> / <span id="total-count"><%= @import.total_rows || 0 %></span> imported
+          <% end %>
+        </span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-4 dark:bg-strokedark overflow-hidden">
+        <% current_progress = if @import.current_phase == 'scraping'
+                                @import.scraped_count.to_i
+                              else
+                                @import.processed_rows.to_i
+                              end
+           percent = @import.total_rows.to_i > 0 ? ((current_progress.to_f / @import.total_rows.to_i) * 100).round(1) : 0
+        %>
+        <div id="progress-bar" class="bg-info h-4 rounded-full transition-all duration-500 flex items-center justify-center" style="width: <%= percent %>%">
+          <span class="text-xs font-medium text-white" id="progress-percent"><%= percent.round(0) %>%</span>
+        </div>
+      </div>
+      <p class="mt-2 text-xs text-gray-500 dark:text-bodydark2 text-center">
+        <svg class="inline-block h-4 w-4 animate-spin mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Auto-refreshing every 3 seconds...
+      </p>
+    </div>
+  <% end %>
+
   <%# Progress Stats %>
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-4 mb-6">
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-4 mb-6" id="stats-grid">
     <div class="rounded-lg bg-gray-50 px-4 py-5 dark:bg-strokedark">
-      <p class="text-sm font-medium text-gray-500 dark:text-bodydark2">Total Products</p>
-      <p class="mt-1 text-3xl font-bold text-gray-900 dark:text-white"><%= @import.total_rows || 0 %></p>
+      <p class="text-sm font-medium text-gray-500 dark:text-bodydark2">Target Products</p>
+      <p class="mt-1 text-3xl font-bold text-gray-900 dark:text-white" id="stat-total"><%= @import.total_rows || 0 %></p>
     </div>
 
     <div class="rounded-lg bg-success/10 px-4 py-5">
       <p class="text-sm font-medium text-success">Successful</p>
-      <p class="mt-1 text-3xl font-bold text-success"><%= @import.successful_rows || 0 %></p>
+      <p class="mt-1 text-3xl font-bold text-success" id="stat-success"><%= @import.successful_rows || 0 %></p>
     </div>
 
     <div class="rounded-lg bg-danger/10 px-4 py-5">
       <p class="text-sm font-medium text-danger">Failed</p>
-      <p class="mt-1 text-3xl font-bold text-danger"><%= @import.failed_rows || 0 %></p>
+      <p class="mt-1 text-3xl font-bold text-danger" id="stat-failed"><%= @import.failed_rows || 0 %></p>
     </div>
 
     <div class="rounded-lg bg-info/10 px-4 py-5">
       <p class="text-sm font-medium text-info">Processed</p>
-      <p class="mt-1 text-3xl font-bold text-info"><%= @import.processed_rows || 0 %></p>
+      <p class="mt-1 text-3xl font-bold text-info" id="stat-processed"><%= @import.processed_rows || 0 %></p>
     </div>
   </div>
 
@@ -256,3 +329,93 @@
     <% end %>
   <% end %>
 </div>
+
+<% if @import.status == 'processing' %>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const progressUrl = '<%= progress_shop_import_path(@shop, @import) %>';
+  let refreshInterval;
+
+  function updateProgress() {
+    fetch(progressUrl, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      // Update stats
+      document.getElementById('stat-total').textContent = data.total_rows;
+      document.getElementById('stat-success').textContent = data.successful_rows;
+      document.getElementById('stat-failed').textContent = data.failed_rows;
+      document.getElementById('stat-processed').textContent = data.processed_rows;
+
+      // Update phase indicators
+      const phaseScrapingIndicator = document.getElementById('phase-scraping-indicator');
+      const phaseImportingIndicator = document.getElementById('phase-importing-indicator');
+      const phaseScrapingText = document.getElementById('phase-scraping-text');
+      const phaseImportingText = document.getElementById('phase-importing-text');
+      const scrapedCount = document.getElementById('scraped-count');
+      const importedCount = document.getElementById('imported-count');
+      const progressLabel = document.getElementById('progress-label');
+      const progressText = document.getElementById('progress-text');
+
+      if (data.current_phase === 'scraping') {
+        // Scraping phase
+        phaseScrapingIndicator.className = 'h-3 w-3 rounded-full bg-info animate-pulse';
+        phaseImportingIndicator.className = 'h-3 w-3 rounded-full bg-gray-300';
+        phaseScrapingText.className = 'text-sm font-semibold text-info';
+        phaseImportingText.className = 'text-sm text-gray-500 dark:text-bodydark2';
+        scrapedCount.classList.remove('hidden');
+        scrapedCount.textContent = '(' + data.scraped_count + '/' + data.total_rows + ')';
+        importedCount.classList.add('hidden');
+        progressLabel.textContent = 'Scraping products from Intercars...';
+        progressText.innerHTML = '<span id="current-count">' + data.scraped_count + '</span> / <span id="total-count">' + data.total_rows + '</span> scraped';
+      } else if (data.current_phase === 'importing') {
+        // Importing phase
+        phaseScrapingIndicator.className = 'h-3 w-3 rounded-full bg-success';
+        phaseImportingIndicator.className = 'h-3 w-3 rounded-full bg-info animate-pulse';
+        phaseScrapingText.className = 'text-sm text-gray-500 dark:text-bodydark2';
+        phaseImportingText.className = 'text-sm font-semibold text-info';
+        scrapedCount.classList.add('hidden');
+        importedCount.classList.remove('hidden');
+        importedCount.textContent = '(' + data.processed_rows + '/' + data.total_rows + ')';
+        progressLabel.textContent = 'Importing products to database...';
+        progressText.innerHTML = '<span id="current-count">' + data.processed_rows + '</span> / <span id="total-count">' + data.total_rows + '</span> imported';
+      }
+
+      // Update progress bar based on current phase
+      const progressBar = document.getElementById('progress-bar');
+      const progressPercent = document.getElementById('progress-percent');
+
+      if (progressBar && data.total_rows > 0) {
+        let currentProgress;
+        if (data.current_phase === 'scraping') {
+          currentProgress = data.scraped_count;
+        } else {
+          currentProgress = data.processed_rows;
+        }
+        const percent = Math.round((currentProgress / data.total_rows) * 100);
+        progressBar.style.width = percent + '%';
+        progressPercent.textContent = percent + '%';
+      }
+
+      // Check if completed - reload page to show final state
+      if (data.status !== 'processing') {
+        clearInterval(refreshInterval);
+        window.location.reload();
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching progress:', error);
+    });
+  }
+
+  // Start polling every 3 seconds
+  refreshInterval = setInterval(updateProgress, 3000);
+
+  // Initial update
+  updateProgress();
+});
+</script>
+<% end %>

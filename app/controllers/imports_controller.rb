@@ -2,7 +2,7 @@ class ImportsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_shop
   before_action :authorize_shop
-  before_action :set_import, only: [:show, :start_processing, :preview]
+  before_action :set_import, only: [:show, :start_processing, :retry_import, :preview, :progress]
 
   def index
     @imports = @shop.import_logs.order(created_at: :desc).page(params[:page])
@@ -39,8 +39,9 @@ class ImportsController < ApplicationController
           @shop.save!
         end
 
-        # Start scraping immediately
-        process_scraper_import_with_params(params[:username], params[:password], metadata[:product_url], metadata[:max_products])
+        # Start scraping based on run_mode
+        run_mode = params[:run_mode] || 'background'
+        process_scraper_import_with_params(params[:username], params[:password], metadata[:product_url], metadata[:max_products], run_mode: run_mode)
       else
         render :new, status: :unprocessable_entity
       end
@@ -70,6 +71,75 @@ class ImportsController < ApplicationController
     else
       redirect_to shop_import_path(@shop, @import), alert: 'Import is already being processed or completed.'
     end
+  end
+
+  def retry_import
+    # Only allow retry for completed or failed imports
+    unless %w[completed completed_with_errors failed].include?(@import.status)
+      redirect_to shop_import_path(@shop, @import), alert: 'Cannot retry an import that is still processing.'
+      return
+    end
+
+    # Only support Intercars imports for now
+    unless @import.source == 'intercars'
+      redirect_to shop_import_path(@shop, @import), alert: 'Retry is only supported for Intercars imports.'
+      return
+    end
+
+    metadata = JSON.parse(@import.metadata || '{}')
+    username = metadata['username']
+    product_url = metadata['product_url']
+    max_products = metadata['max_products'] || 50
+
+    # Get saved credentials
+    credentials = @shop.integration_credentials('intercars')
+    if credentials.nil? || credentials['username'] != username
+      redirect_to shop_import_path(@shop, @import),
+                  alert: 'Credentials not found. Please create a new import with your credentials.'
+      return
+    end
+
+    password = credentials['password']
+
+    # Reset import stats
+    @import.update(
+      status: 'pending',
+      started_at: nil,
+      completed_at: nil,
+      total_rows: 0,
+      successful_rows: 0,
+      failed_rows: 0,
+      processed_rows: 0,
+      error_messages: nil
+    )
+
+    # Clear previous imported products
+    @import.imported_products.destroy_all
+
+    # Process the import again in background
+    IntercarsImportJob.perform_later(
+      @import.id,
+      username,
+      password,
+      product_url,
+      max_products
+    )
+
+    redirect_to shop_import_path(@shop, @import), notice: 'Re-import started. This page will auto-refresh to show progress.'
+  end
+
+  def progress
+    render json: {
+      status: @import.status,
+      current_phase: @import.current_phase || 'unknown',
+      scraped_count: @import.scraped_count || 0,
+      total_rows: @import.total_rows || 0,
+      processed_rows: @import.processed_rows || 0,
+      successful_rows: @import.successful_rows || 0,
+      failed_rows: @import.failed_rows || 0,
+      started_at: @import.started_at&.iso8601,
+      completed_at: @import.completed_at&.iso8601
+    }
   end
 
   private
@@ -204,7 +274,101 @@ class ImportsController < ApplicationController
     process_scraper_import_with_params(username, password, product_url, max_products)
   end
 
-  def process_scraper_import_with_params(username, password, product_url, max_products)
+  def process_scraper_import_with_params(username, password, product_url, max_products, run_mode: 'background')
+    # Set initial state
+    @import.update!(
+      status: 'processing',
+      started_at: Time.current,
+      total_rows: max_products,
+      processed_rows: 0,
+      successful_rows: 0,
+      failed_rows: 0,
+      current_phase: 'starting',
+      scraped_count: 0
+    )
+
+    if run_mode == 'direct'
+      # Run synchronously - the page will wait
+      process_scraper_import_direct(username, password, product_url, max_products)
+    else
+      # Enqueue background job
+      IntercarsImportJob.perform_later(
+        @import.id,
+        username,
+        password,
+        product_url,
+        max_products
+      )
+
+      redirect_to shop_import_path(@shop, @import), notice: 'Import started in background. This page will auto-refresh to show progress.'
+    end
+  end
+
+  def process_scraper_import_direct(username, password, product_url, max_products)
+    begin
+      # Call the scraper service directly (synchronous)
+      result = ScraperService.scrape_and_import(
+        @shop,
+        username: username,
+        password: password,
+        product_url: product_url,
+        max_products: max_products,
+        import_log: @import
+      )
+
+      if result[:success]
+        # Determine final status based on failures
+        final_status = result[:failed] > 0 ? 'completed_with_errors' : 'completed'
+
+        # Save errors if any
+        errors = result[:errors] || []
+        error_messages = errors.any? ? errors.to_json : nil
+
+        @import.update!(
+          status: final_status,
+          completed_at: Time.current,
+          total_rows: result[:total],
+          successful_rows: result[:imported],
+          failed_rows: result[:failed],
+          error_messages: error_messages,
+          current_phase: 'completed'
+        )
+
+        if errors.any?
+          redirect_to shop_import_path(@shop, @import),
+                      alert: "Scraping completed with #{result[:failed]} errors. Imported #{result[:imported]}/#{result[:total]} products."
+        else
+          redirect_to shop_import_path(@shop, @import),
+                      notice: "Scraping completed successfully! Imported #{result[:imported]} products."
+        end
+      else
+        error_msg = result[:error] || 'Unknown error occurred'
+
+        @import.update!(
+          status: 'failed',
+          completed_at: Time.current,
+          error_messages: [error_msg].to_json,
+          current_phase: 'failed'
+        )
+
+        redirect_to shop_import_path(@shop, @import), alert: "Scraping failed: #{error_msg}"
+      end
+    rescue => e
+      Rails.logger.error "Scraper import error: #{e.message}\n#{e.backtrace.join("\n")}"
+
+      @import.update!(
+        status: 'failed',
+        completed_at: Time.current,
+        error_messages: [e.message].to_json,
+        current_phase: 'failed'
+      )
+
+      redirect_to shop_import_path(@shop, @import), alert: "Import failed: #{e.message}"
+    end
+  end
+
+  # Keep old synchronous method for reference but not used
+  def process_scraper_import_sync(username, password, product_url, max_products)
     @import.update(status: 'processing', started_at: Time.current)
 
     begin

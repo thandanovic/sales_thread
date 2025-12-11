@@ -201,6 +201,7 @@ class OlxCategoryTemplatesController < ApplicationController
     params.require(:olx_category_template).permit(
       :name,
       :title_template,
+      :description_template,
       :olx_category_id,
       :olx_location_id,
       :default_listing_type,

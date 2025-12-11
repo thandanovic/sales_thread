@@ -64,6 +64,31 @@
       <% end %>
     <% end %>
 
+    <%# Technical Description & Models %>
+    <% if @product.technical_description.present? || @product.models.present? %>
+      <%= render "shared/components/card", title: "Technical Information" do %>
+        <div class="space-y-4">
+          <% if @product.technical_description.present? %>
+            <div>
+              <h4 class="text-sm font-medium text-gray-700 dark:text-bodydark1 mb-2">Technical Description</h4>
+              <div class="prose prose-sm dark:prose-invert max-w-none">
+                <pre class="whitespace-pre-line font-sans text-gray-700 dark:text-bodydark1 text-sm bg-gray-50 dark:bg-strokedark p-3 rounded-lg"><%= @product.technical_description %></pre>
+              </div>
+            </div>
+          <% end %>
+
+          <% if @product.models.present? %>
+            <div>
+              <h4 class="text-sm font-medium text-gray-700 dark:text-bodydark1 mb-2">Compatible Models</h4>
+              <div class="bg-info/10 border border-info/30 rounded-lg p-3">
+                <pre class="whitespace-pre-line font-sans text-gray-700 dark:text-bodydark1 text-sm"><%= @product.models %></pre>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    <% end %>
+
     <%# OLX Integration %>
     <%= render "shared/components/card", title: "OLX Integration" do %>
       <%# Configuration Status %>
@@ -148,6 +173,51 @@
                       +<%= @product.image_urls.length - 6 %>
                     </div>
                   <% end %>
+                </div>
+              </div>
+            <% end %>
+
+            <%# OLX Attributes Preview %>
+            <% attributes_preview = @product.preview_olx_attributes %>
+            <% if attributes_preview.any? %>
+              <div>
+                <p class="text-xs font-medium text-info/80 mb-2">Attributes:</p>
+                <div class="bg-white dark:bg-boxdark rounded-lg border border-info/20 overflow-hidden">
+                  <table class="w-full text-xs">
+                    <thead>
+                      <tr class="bg-info/5">
+                        <th class="px-3 py-1.5 text-left text-info/80 font-medium">Attribute</th>
+                        <th class="px-3 py-1.5 text-left text-info/80 font-medium">Value</th>
+                        <th class="px-3 py-1.5 text-center text-info/80 font-medium w-20">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-info/10">
+                      <% attributes_preview.each do |attr| %>
+                        <tr class="<%= attr[:status] == 'missing' ? 'bg-danger/5' : '' %>">
+                          <td class="px-3 py-1.5 text-gray-700 dark:text-bodydark1">
+                            <%= attr[:name].capitalize %>
+                            <% if attr[:required] %>
+                              <span class="text-danger">*</span>
+                            <% end %>
+                          </td>
+                          <td class="px-3 py-1.5 text-gray-900 dark:text-white font-medium">
+                            <% if attr[:value].present? %>
+                              <%= attr[:value] %>
+                            <% else %>
+                              <span class="text-gray-400 dark:text-bodydark2 italic">Not set</span>
+                            <% end %>
+                          </td>
+                          <td class="px-3 py-1.5 text-center">
+                            <% if attr[:status] == 'resolved' %>
+                              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-success/10 text-success">OK</span>
+                            <% else %>
+                              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-danger/10 text-danger">Missing</span>
+                            <% end %>
+                          </td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             <% end %>

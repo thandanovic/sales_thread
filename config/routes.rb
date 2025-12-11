@@ -35,7 +35,9 @@ Rails.application.routes.draw do
       resources :imports, only: [:index, :new, :create, :show] do
         member do
           post :start_processing
+          post :retry_import
           get :preview
+          get :progress
         end
       end
       resources :olx_category_templates do

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_05_082307) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_09_073128) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -54,6 +54,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_05_082307) do
     t.datetime "updated_at", null: false
     t.text "error_messages"
     t.integer "olx_category_template_id"
+    t.string "current_phase"
+    t.integer "scraped_count"
     t.index ["olx_category_template_id"], name: "index_import_logs_on_olx_category_template_id"
     t.index ["shop_id"], name: "index_import_logs_on_shop_id"
   end
@@ -65,7 +67,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_05_082307) do
     t.text "raw_data"
     t.string "status"
     t.text "error_text"
-    t.integer "product_id", null: false
+    t.integer "product_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["import_log_id"], name: "index_imported_products_on_import_log_id"
@@ -124,6 +126,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_05_082307) do
     t.datetime "updated_at", null: false
     t.json "description_filter"
     t.string "title_template"
+    t.text "description_template"
     t.index ["name"], name: "index_olx_category_templates_on_name"
     t.index ["olx_category_id"], name: "index_olx_category_templates_on_olx_category_id"
     t.index ["olx_location_id"], name: "index_olx_category_templates_on_olx_location_id"
@@ -191,6 +194,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_05_082307) do
     t.text "olx_description"
     t.string "import_source", default: "manual"
     t.string "olx_external_id"
+    t.string "sub_title"
+    t.text "technical_description"
+    t.text "models"
     t.index ["import_source"], name: "index_products_on_import_source"
     t.index ["olx_category_template_id"], name: "index_products_on_olx_category_template_id"
     t.index ["shop_id"], name: "index_products_on_shop_id"
