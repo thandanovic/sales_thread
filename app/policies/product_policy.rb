@@ -1,27 +1,64 @@
 class ProductPolicy < ApplicationPolicy
   def index?
-    user.present? && user_is_shop_member?
+    system_admin? || user_is_member?
   end
 
   def show?
-    user.present? && user_is_shop_member?
+    system_admin? || user_is_member?
   end
 
   def create?
-    user.present? && (user_is_shop_owner? || user_is_shop_admin?)
+    system_admin? || user_is_manager?
   end
 
   def update?
-    user.present? && (user_is_shop_owner? || user_is_shop_admin?)
+    system_admin? || user_is_manager?
   end
 
   def destroy?
-    user.present? && (user_is_shop_owner? || user_is_shop_admin?)
+    system_admin? || user_is_manager?
+  end
+
+  # OLX sync actions - ALL members can sync (including agents)
+  def publish_to_olx?
+    system_admin? || user_is_member?
+  end
+
+  def update_on_olx?
+    system_admin? || user_is_member?
+  end
+
+  def remove_from_olx?
+    system_admin? || user_is_member?
+  end
+
+  # Bulk actions - only managers can do bulk CRUD operations
+  def bulk_update_margin?
+    system_admin? || user_is_manager?
+  end
+
+  def bulk_destroy?
+    system_admin? || user_is_manager?
+  end
+
+  # Bulk OLX sync - ALL members can do
+  def bulk_publish_to_olx?
+    system_admin? || user_is_member?
+  end
+
+  def bulk_update_on_olx?
+    system_admin? || user_is_member?
+  end
+
+  def bulk_remove_from_olx?
+    system_admin? || user_is_member?
   end
 
   class Scope < ApplicationPolicy::Scope
     def resolve
-      if user.present?
+      if system_admin?
+        scope.all
+      elsif user.present?
         shop_ids = user.shops.pluck(:id)
         scope.where(shop_id: shop_ids)
       else
@@ -36,17 +73,14 @@ class ProductPolicy < ApplicationPolicy
     record.shop
   end
 
-  def user_is_shop_member?
-    shop.users.include?(user)
+  def user_is_member?
+    return false unless user && shop
+    system_admin? || shop.users.include?(user)
   end
 
-  def user_is_shop_owner?
+  def user_is_manager?
+    return false unless user && shop
     membership = shop.memberships.find_by(user: user)
-    membership&.owner?
-  end
-
-  def user_is_shop_admin?
-    membership = shop.memberships.find_by(user: user)
-    membership&.admin?
+    membership&.manager?
   end
 end

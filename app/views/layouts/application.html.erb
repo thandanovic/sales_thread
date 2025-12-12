@@ -179,8 +179,11 @@
 
   <body class="font-sans antialiased bg-whiten text-gray-900 dark:bg-boxdark-2 dark:text-bodydark">
     <% if user_signed_in? %>
+      <%# Impersonation Banner %>
+      <%= render "shared/impersonation_banner" %>
+
       <%# Dashboard Layout with Sidebar %>
-      <div class="flex h-screen overflow-hidden" data-controller="sidebar">
+      <div class="flex h-screen overflow-hidden <%= 'pt-10' if impersonating? %>" data-controller="sidebar">
         <%# Sidebar %>
         <%= render "shared/layout/sidebar" %>
 

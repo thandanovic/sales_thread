@@ -1,27 +1,35 @@
 class ShopsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_shop, only: [:show, :edit, :update, :destroy, :test_olx_connection, :sync_from_olx, :setup_olx_data]
-  before_action :authorize_shop, only: [:edit, :update, :destroy, :test_olx_connection, :sync_from_olx, :setup_olx_data]
 
   def index
-    @shops = current_user.shops.order(created_at: :desc)
+    # Auto-redirect for single-shop users
+    if current_user.single_shop_access?
+      redirect_to current_user.single_shop
+      return
+    end
+
+    @shops = policy_scope(Shop).order(created_at: :desc)
   end
 
   def show
+    authorize @shop
     @products = @shop.products.order(created_at: :desc).limit(10)
     @recent_imports = @shop.import_logs.order(created_at: :desc).limit(5)
   end
 
   def new
     @shop = Shop.new
+    authorize @shop
   end
 
   def create
     @shop = Shop.new(shop_params)
+    authorize @shop
 
     if @shop.save
-      # Create membership with owner role
-      @shop.memberships.create!(user: current_user, role: 'owner')
+      # Create membership with manager role (creator becomes manager)
+      @shop.memberships.create!(user: current_user, role: 'manager')
 
       redirect_to @shop, notice: 'Shop was successfully created.'
     else
@@ -30,9 +38,11 @@ class ShopsController < ApplicationController
   end
 
   def edit
+    authorize @shop
   end
 
   def update
+    authorize @shop
     if @shop.update(shop_params)
       redirect_to @shop, notice: 'Shop was successfully updated.'
     else
@@ -41,11 +51,13 @@ class ShopsController < ApplicationController
   end
 
   def destroy
+    authorize @shop
     @shop.destroy
     redirect_to shops_url, notice: 'Shop was successfully deleted.'
   end
 
   def test_olx_connection
+    authorize @shop
     begin
       result = OlxApiService.authenticate(@shop)
 
@@ -75,6 +87,7 @@ class ShopsController < ApplicationController
   end
 
   def sync_from_olx
+    authorize @shop
     Rails.logger.info "[Shops] Starting OLX sync for shop #{@shop.id}"
 
     begin
@@ -135,6 +148,7 @@ class ShopsController < ApplicationController
   end
 
   def setup_olx_data
+    authorize @shop
     Rails.logger.info "[Shops] Starting OLX setup for shop #{@shop.id}"
 
     begin
@@ -188,16 +202,9 @@ class ShopsController < ApplicationController
   private
 
   def set_shop
-    @shop = current_user.shops.find(params[:id])
+    @shop = find_shop_with_admin_access(params[:id])
   rescue ActiveRecord::RecordNotFound
     redirect_to shops_path, alert: 'Shop not found or you do not have access.'
-  end
-
-  def authorize_shop
-    membership = @shop.memberships.find_by(user: current_user)
-    unless membership&.owner? || membership&.admin?
-      redirect_to @shop, alert: 'You are not authorized to perform this action.'
-    end
   end
 
   def shop_params

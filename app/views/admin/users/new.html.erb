@@ -1,0 +1,91 @@
+<% content_for :title, "New User - User Management - SLX.ba" %>
+
+<div class="mb-6">
+  <nav class="flex mb-2" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 text-sm">
+      <li><%= link_to "Users", admin_users_path, class: "text-bodydark2 hover:text-primary" %></li>
+      <li><span class="text-bodydark2 mx-2">/</span></li>
+      <li class="text-bodydark1">New User</li>
+    </ol>
+  </nav>
+  <h2 class="text-title-md2 font-bold text-black dark:text-white">Create New User</h2>
+</div>
+
+<div class="rounded-xl border border-stroke bg-white p-6 shadow-default dark:border-strokedark dark:bg-boxdark max-w-2xl">
+  <%= form_with model: [:admin, @user], class: "space-y-6" do |f| %>
+    <% if @user.errors.any? %>
+      <div class="rounded-lg border border-danger/30 bg-danger/10 p-4">
+        <h3 class="font-medium text-danger mb-2"><%= pluralize(@user.errors.count, "error") %> prohibited this user from being saved:</h3>
+        <ul class="list-disc list-inside text-sm text-danger">
+          <% @user.errors.full_messages.each do |msg| %>
+            <li><%= msg %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <div>
+      <%= f.label :email, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+      <%= f.email_field :email, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors", placeholder: "user@example.com" %>
+    </div>
+
+    <div>
+      <%= f.label :password, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+      <%= f.password_field :password, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors", placeholder: "Leave blank for random password" %>
+      <p class="mt-1.5 text-xs text-gray-500 dark:text-bodydark2">If left blank, a random password will be generated.</p>
+    </div>
+
+    <div>
+      <%= f.label :password_confirmation, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+      <%= f.password_field :password_confirmation, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors" %>
+    </div>
+
+    <div class="flex items-center gap-3 py-2">
+      <%= f.check_box :admin, class: "h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary dark:border-strokedark dark:bg-boxdark", id: "user_admin" %>
+      <%= f.label :admin, "System Administrator", class: "font-medium text-gray-900 dark:text-white" %>
+      <span class="text-xs text-gray-500 dark:text-bodydark2">(Full access to all shops and admin features)</span>
+    </div>
+
+    <div class="rounded-lg border border-gray-200 dark:border-strokedark bg-gray-50 dark:bg-meta-4 p-5">
+      <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-1">Shop Assignment</h4>
+      <p class="text-xs text-gray-500 dark:text-bodydark2 mb-4">Optionally assign this user to a shop. You can add more shops later.</p>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label class="mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1">Shop</label>
+          <div class="relative">
+            <%= select_tag :shop_id,
+                options_from_collection_for_select(@shops, :id, :name),
+                include_blank: "-- Select a shop --",
+                class: "w-full rounded-lg border border-gray-300 bg-white py-3 pl-4 pr-10 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors appearance-none cursor-pointer" %>
+            <span class="absolute top-1/2 right-4 -translate-y-1/2 pointer-events-none">
+              <svg class="text-gray-500 dark:text-bodydark2" width="12" height="8" viewBox="0 0 12 8" fill="none">
+                <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <label class="mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1">Role</label>
+          <div class="relative">
+            <%= select_tag :membership_role,
+                options_for_select([["Manager (Full access)", "manager"], ["Agent (Read + OLX sync)", "agent"]]),
+                include_blank: "-- Select a role --",
+                class: "w-full rounded-lg border border-gray-300 bg-white py-3 pl-4 pr-10 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors appearance-none cursor-pointer" %>
+            <span class="absolute top-1/2 right-4 -translate-y-1/2 pointer-events-none">
+              <svg class="text-gray-500 dark:text-bodydark2" width="12" height="8" viewBox="0 0 12 8" fill="none">
+                <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 pt-2">
+      <%= f.submit "Create User", class: "inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-opacity-90 transition-colors cursor-pointer" %>
+      <%= link_to "Cancel", admin_users_path, class: "inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-6 py-3 font-medium text-gray-700 hover:bg-gray-50 transition-colors dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-meta-4" %>
+    </div>
+  <% end %>
+</div>

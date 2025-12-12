@@ -4,24 +4,45 @@ class ShopPolicy < ApplicationPolicy
   end
 
   def show?
-    user.present? && user_is_member?
+    system_admin? || user_is_member?
   end
 
   def create?
-    user.present?
+    # Only system admins can create new shops
+    system_admin?
   end
 
   def update?
-    user.present? && (user_is_owner? || user_is_admin?)
+    system_admin? || user_is_manager?
   end
 
   def destroy?
-    user.present? && user_is_owner?
+    system_admin? || user_is_manager?
+  end
+
+  # OLX-related actions
+  def test_olx_connection?
+    system_admin? || user_is_manager?
+  end
+
+  def setup_olx_data?
+    system_admin? || user_is_manager?
+  end
+
+  def sync_from_olx?
+    system_admin? || user_is_manager?
+  end
+
+  # Member management
+  def manage_members?
+    system_admin? || user_is_manager?
   end
 
   class Scope < ApplicationPolicy::Scope
     def resolve
-      if user.present?
+      if system_admin?
+        scope.all
+      elsif user.present?
         scope.joins(:memberships).where(memberships: { user_id: user.id })
       else
         scope.none
@@ -32,16 +53,13 @@ class ShopPolicy < ApplicationPolicy
   private
 
   def user_is_member?
+    return false unless user && record
     record.users.include?(user)
   end
 
-  def user_is_owner?
+  def user_is_manager?
+    return false unless user && record
     membership = record.memberships.find_by(user: user)
-    membership&.owner?
-  end
-
-  def user_is_admin?
-    membership = record.memberships.find_by(user: user)
-    membership&.admin?
+    membership&.manager?
   end
 end

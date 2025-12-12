@@ -18,8 +18,16 @@ class Shop < ApplicationRecord
   validates :name, presence: true
 
   # Methods
-  def owner
-    memberships.find_by(role: 'owner')&.user
+  def membership_for(user)
+    memberships.find_by(user: user)
+  end
+
+  def managers
+    users.joins(:memberships).where(memberships: { shop_id: id, role: 'manager' })
+  end
+
+  def agents
+    users.joins(:memberships).where(memberships: { shop_id: id, role: 'agent' })
   end
 
   def formatted_olx_token_expiration

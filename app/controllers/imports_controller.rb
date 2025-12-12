@@ -1,18 +1,20 @@
 class ImportsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_shop
-  before_action :authorize_shop
   before_action :set_import, only: [:show, :start_processing, :retry_import, :preview, :progress]
 
   def index
+    authorize @shop, :show?  # All members can view imports
     @imports = @shop.import_logs.order(created_at: :desc).page(params[:page])
   end
 
   def new
+    authorize @shop, :update?  # Only managers can create imports
     @import = @shop.import_logs.new
   end
 
   def create
+    authorize @shop, :update?  # Only managers can create imports
     @import = @shop.import_logs.new
     @import.source = params[:import_log]&.[](:source) || params[:source]
     @import.status = 'pending'
@@ -52,15 +54,18 @@ class ImportsController < ApplicationController
   end
 
   def show
+    authorize @shop, :show?  # All members can view imports
     @imported_products = @import.imported_products.order(created_at: :desc).page(params[:page])
   end
 
   def preview
+    authorize @shop, :show?  # All members can view imports
     # Show preview of imported products before final processing
     @imported_products = @import.imported_products.where(status: 'pending').limit(50)
   end
 
   def start_processing
+    authorize @shop, :update?  # Only managers can process imports
     if @import.status == 'pending'
       case @import.source
       when 'csv'
@@ -74,6 +79,7 @@ class ImportsController < ApplicationController
   end
 
   def retry_import
+    authorize @shop, :update?  # Only managers can retry imports
     # Only allow retry for completed or failed imports
     unless %w[completed completed_with_errors failed].include?(@import.status)
       redirect_to shop_import_path(@shop, @import), alert: 'Cannot retry an import that is still processing.'
@@ -129,6 +135,7 @@ class ImportsController < ApplicationController
   end
 
   def progress
+    authorize @shop, :show?  # All members can view progress
     render json: {
       status: @import.status,
       current_phase: @import.current_phase || 'unknown',
@@ -145,7 +152,7 @@ class ImportsController < ApplicationController
   private
 
   def set_shop
-    @shop = current_user.shops.find(params[:shop_id])
+    @shop = find_shop_with_admin_access(params[:shop_id])
   rescue ActiveRecord::RecordNotFound
     redirect_to shops_path, alert: 'Shop not found or you do not have access.'
   end
@@ -154,13 +161,6 @@ class ImportsController < ApplicationController
     @import = @shop.import_logs.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     redirect_to shop_imports_path(@shop), alert: 'Import not found.'
-  end
-
-  def authorize_shop
-    membership = @shop.memberships.find_by(user: current_user)
-    unless membership&.owner? || membership&.admin?
-      redirect_to shop_path(@shop), alert: 'You are not authorized to perform this action.'
-    end
   end
 
   def import_params

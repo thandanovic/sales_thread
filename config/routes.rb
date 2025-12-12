@@ -5,6 +5,21 @@ Rails.application.routes.draw do
   # Root route
   root "home#index"
 
+  # Admin namespace (system admins only)
+  namespace :admin do
+    resources :users do
+      member do
+        post :impersonate
+        post :add_membership
+        delete :remove_membership
+        patch :update_membership
+      end
+    end
+  end
+
+  # Stop impersonation route (available to anyone being impersonated)
+  delete :stop_impersonation, to: 'admin/impersonations#destroy'
+
   # Authenticated routes
   authenticate :user do
     resources :shops do

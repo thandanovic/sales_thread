@@ -1060,12 +1060,195 @@ async function extractTechnicalDescription(page, containerIndex) {
         }
       }
 
-      // Extract models from technical description (text after "odgovara:")
+      // Extract models from technical description
+      // Strategy 1: Look for "odgovara:" pattern
       if (technicalDescription) {
         const odgovaraMatch = technicalDescription.match(/odgovara:\s*(.+)$/i);
         if (odgovaraMatch) {
           models = odgovaraMatch[1].trim();
-          console.log('[TECH] Extracted models:', models);
+          console.log('[TECH] Extracted models via "odgovara:":', models);
+        }
+      }
+
+      // Strategy 2: Look for "Vozila:" pattern
+      if (!models && technicalDescription) {
+        const vozilaMatch = technicalDescription.match(/Vozila:\s*(.+?)(?:$|,\s*[A-Z][a-z]+:)/i);
+        if (vozilaMatch) {
+          models = vozilaMatch[1].trim();
+          console.log('[TECH] Extracted models via "Vozila:":', models);
+        }
+      }
+
+      // Strategy 2b: Look for "kočioni sustav:" or "kočioni sistem:" pattern
+      // Extract the text after "sustav: BRAND;" which often contains vehicle models
+      if (!models && technicalDescription) {
+        const sustavMatch = technicalDescription.match(/ko[čc]ioni\s+s[ui]stav[a]?\s*:\s*\w+\s*[;,]\s*(.+)$/i);
+        if (sustavMatch) {
+          // The text after brake brand often contains vehicle models
+          // Will be processed by Strategy 3 below
+          console.log('[TECH] Found text after brake system:', sustavMatch[1].substring(0, 50));
+        }
+      }
+
+      // Strategy 3: Look for car manufacturer names directly in the text
+      // This handles formats like "ALFA ROMEO TONALE; FIAT 500X; JEEP COMPASS"
+      // Also handles mixed case like "Audi 80 (B4)"
+      if (!models && technicalDescription) {
+        const carManufacturers = [
+          'ALFA ROMEO', 'AUDI', 'BMW', 'CITROEN', 'CITROËN', 'DACIA', 'FIAT', 'FORD', 'HONDA',
+          'HYUNDAI', 'JEEP', 'KIA', 'LANCIA', 'MAZDA', 'MERCEDES', 'MINI', 'MITSUBISHI',
+          'NISSAN', 'OPEL', 'PEUGEOT', 'RENAULT', 'SEAT', 'SKODA', 'ŠKODA', 'SUZUKI', 'TOYOTA',
+          'VOLKSWAGEN', 'VW', 'VOLVO', 'CHEVROLET', 'CHRYSLER', 'DODGE', 'PORSCHE',
+          'SAAB', 'SUBARU', 'LAND ROVER', 'JAGUAR', 'LEXUS', 'INFINITI', 'CADILLAC',
+          'TESLA', 'ISUZU', 'LADA', 'DAEWOO', 'SSANGYONG', 'SMART', 'ROVER', 'MG',
+          'TRABANT', 'WARTBURG', 'ZASTAVA', 'YUGO'
+        ];
+
+        // Common model names often used without manufacturer prefix
+        // Format: { pattern: 'MODEL', manufacturer: 'MANUFACTURER' }
+        const standaloneModels = [
+          // VW models
+          { pattern: 'GOLF', manufacturer: 'VW' },
+          { pattern: 'PASSAT', manufacturer: 'VW' },
+          { pattern: 'POLO', manufacturer: 'VW' },
+          { pattern: 'TIGUAN', manufacturer: 'VW' },
+          { pattern: 'TOURAN', manufacturer: 'VW' },
+          { pattern: 'TOUAREG', manufacturer: 'VW' },
+          { pattern: 'CADDY', manufacturer: 'VW' },
+          { pattern: 'TRANSPORTER', manufacturer: 'VW' },
+          { pattern: 'SHARAN', manufacturer: 'VW' },
+          { pattern: 'ARTEON', manufacturer: 'VW' },
+          { pattern: 'JETTA', manufacturer: 'VW' },
+          { pattern: 'BEETLE', manufacturer: 'VW' },
+          { pattern: 'SCIROCCO', manufacturer: 'VW' },
+          // Opel models
+          { pattern: 'ASTRA', manufacturer: 'OPEL' },
+          { pattern: 'CORSA', manufacturer: 'OPEL' },
+          { pattern: 'VECTRA', manufacturer: 'OPEL' },
+          { pattern: 'INSIGNIA', manufacturer: 'OPEL' },
+          { pattern: 'ZAFIRA', manufacturer: 'OPEL' },
+          { pattern: 'MERIVA', manufacturer: 'OPEL' },
+          { pattern: 'MOKKA', manufacturer: 'OPEL' },
+          // Ford models
+          { pattern: 'FOCUS', manufacturer: 'FORD' },
+          { pattern: 'FIESTA', manufacturer: 'FORD' },
+          { pattern: 'MONDEO', manufacturer: 'FORD' },
+          { pattern: 'KUGA', manufacturer: 'FORD' },
+          { pattern: 'ESCORT', manufacturer: 'FORD' },
+          // Fiat models
+          { pattern: 'PUNTO', manufacturer: 'FIAT' },
+          { pattern: 'PANDA', manufacturer: 'FIAT' },
+          { pattern: 'BRAVO', manufacturer: 'FIAT' },
+          { pattern: 'STILO', manufacturer: 'FIAT' },
+          { pattern: 'TIPO', manufacturer: 'FIAT' },
+          { pattern: 'MULTIPLA', manufacturer: 'FIAT' },
+          // Renault models
+          { pattern: 'CLIO', manufacturer: 'RENAULT' },
+          { pattern: 'MEGANE', manufacturer: 'RENAULT' },
+          { pattern: 'SCENIC', manufacturer: 'RENAULT' },
+          { pattern: 'LAGUNA', manufacturer: 'RENAULT' },
+          { pattern: 'CAPTUR', manufacturer: 'RENAULT' },
+          // Peugeot uses numbers, skip
+          // Citroen models
+          { pattern: 'BERLINGO', manufacturer: 'CITROEN' },
+          { pattern: 'XSARA', manufacturer: 'CITROEN' },
+          { pattern: 'SAXO', manufacturer: 'CITROEN' },
+          // Jeep models
+          { pattern: 'COMPASS', manufacturer: 'JEEP' },
+          { pattern: 'RENEGADE', manufacturer: 'JEEP' },
+          { pattern: 'CHEROKEE', manufacturer: 'JEEP' },
+          { pattern: 'WRANGLER', manufacturer: 'JEEP' },
+          // Seat models
+          { pattern: 'IBIZA', manufacturer: 'SEAT' },
+          { pattern: 'LEON', manufacturer: 'SEAT' },
+          { pattern: 'TOLEDO', manufacturer: 'SEAT' },
+          { pattern: 'ALTEA', manufacturer: 'SEAT' },
+          // Skoda models
+          { pattern: 'OCTAVIA', manufacturer: 'SKODA' },
+          { pattern: 'FABIA', manufacturer: 'SKODA' },
+          { pattern: 'SUPERB', manufacturer: 'SKODA' },
+          { pattern: 'RAPID', manufacturer: 'SKODA' },
+          { pattern: 'YETI', manufacturer: 'SKODA' },
+          // Toyota models
+          { pattern: 'COROLLA', manufacturer: 'TOYOTA' },
+          { pattern: 'YARIS', manufacturer: 'TOYOTA' },
+          { pattern: 'AVENSIS', manufacturer: 'TOYOTA' },
+          { pattern: 'RAV4', manufacturer: 'TOYOTA' },
+          { pattern: 'AURIS', manufacturer: 'TOYOTA' },
+          // Honda models
+          { pattern: 'CIVIC', manufacturer: 'HONDA' },
+          { pattern: 'ACCORD', manufacturer: 'HONDA' },
+          { pattern: 'CR-V', manufacturer: 'HONDA' },
+          { pattern: 'JAZZ', manufacturer: 'HONDA' },
+          // Mazda models
+          { pattern: 'MAZDA3', manufacturer: 'MAZDA' },
+          { pattern: 'MAZDA6', manufacturer: 'MAZDA' },
+          { pattern: 'CX-5', manufacturer: 'MAZDA' },
+          // Nissan models
+          { pattern: 'QASHQAI', manufacturer: 'NISSAN' },
+          { pattern: 'JUKE', manufacturer: 'NISSAN' },
+          { pattern: 'MICRA', manufacturer: 'NISSAN' },
+          { pattern: 'X-TRAIL', manufacturer: 'NISSAN' },
+          // Hyundai models
+          { pattern: 'TUCSON', manufacturer: 'HYUNDAI' },
+          { pattern: 'I30', manufacturer: 'HYUNDAI' },
+          { pattern: 'I20', manufacturer: 'HYUNDAI' },
+          { pattern: 'SANTA FE', manufacturer: 'HYUNDAI' },
+          // Kia models
+          { pattern: 'SPORTAGE', manufacturer: 'KIA' },
+          { pattern: 'CEED', manufacturer: 'KIA' },
+          { pattern: 'RIO', manufacturer: 'KIA' },
+          { pattern: 'SORENTO', manufacturer: 'KIA' },
+          // Alfa Romeo models
+          { pattern: 'GIULIETTA', manufacturer: 'ALFA ROMEO' },
+          { pattern: 'GIULIA', manufacturer: 'ALFA ROMEO' },
+          { pattern: 'STELVIO', manufacturer: 'ALFA ROMEO' },
+          { pattern: 'TONALE', manufacturer: 'ALFA ROMEO' },
+          { pattern: '147', manufacturer: 'ALFA ROMEO' },
+          { pattern: '156', manufacturer: 'ALFA ROMEO' },
+          { pattern: '159', manufacturer: 'ALFA ROMEO' },
+        ];
+
+        const foundModels = [];
+
+        // Find all manufacturer mentions and extract the following model info (case-insensitive)
+        for (const manufacturer of carManufacturers) {
+          // Case-insensitive regex to match manufacturer followed by model info
+          // Allow commas within date ranges like "10,96" or "-10,96" but stop at "; " or ", " followed by uppercase
+          // Pattern: manufacturer + model info until semicolon or comma followed by space and uppercase letter
+          const regex = new RegExp('\\b' + manufacturer + '\\s+([^;]+?)(?=;|,\\s*[A-Z]|$)', 'gi');
+          let match;
+          while ((match = regex.exec(technicalDescription)) !== null) {
+            // Preserve original case from the text
+            const fullMatch = match[0].trim();
+            // Clean up trailing commas or spaces
+            const cleanMatch = fullMatch.replace(/[,\s]+$/, '');
+            if (cleanMatch.length > manufacturer.length + 1 && !foundModels.some(m => m.toUpperCase() === cleanMatch.toUpperCase())) {
+              foundModels.push(cleanMatch);
+            }
+          }
+        }
+
+        // Also search for standalone model names (like "Golf VI" without "VW")
+        for (const model of standaloneModels) {
+          // Match model name followed by any info (version, year, engine, etc.)
+          // Stop at semicolon or comma followed by uppercase letter (next model/manufacturer)
+          const regex = new RegExp('\\b' + model.pattern + '\\s+([^;]+?)(?=;|,\\s*[A-Z]|$)', 'gi');
+          let match;
+          while ((match = regex.exec(technicalDescription)) !== null) {
+            // Prefix with manufacturer for clarity
+            const fullMatch = model.manufacturer + ' ' + match[0].trim().replace(/[,\s]+$/, '');
+            // Avoid duplicates and skip if already matched by manufacturer search
+            if (!foundModels.some(m => m.toUpperCase() === fullMatch.toUpperCase()) &&
+                !foundModels.some(m => m.toUpperCase().includes(match[0].trim().toUpperCase()))) {
+              foundModels.push(fullMatch);
+            }
+          }
+        }
+
+        if (foundModels.length > 0) {
+          models = foundModels.join('; ');
+          console.log('[TECH] Extracted models via manufacturer search:', models);
         }
       }
 

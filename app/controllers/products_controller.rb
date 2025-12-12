@@ -1,10 +1,10 @@
 class ProductsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_shop, only: [:index, :show, :new, :create, :edit, :update, :destroy, :bulk_update_margin, :bulk_destroy, :bulk_publish_to_olx, :bulk_update_on_olx, :bulk_remove_from_olx, :bulk_disconnect_from_olx, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx, :disconnect_from_olx]
+  before_action :set_shop
   before_action :set_product, only: [:show, :edit, :update, :destroy, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx, :disconnect_from_olx]
-  before_action :authorize_shop, only: [:new, :create, :edit, :update, :destroy, :bulk_update_margin, :bulk_destroy, :bulk_publish_to_olx, :bulk_update_on_olx, :bulk_remove_from_olx, :bulk_disconnect_from_olx, :publish_to_olx, :publish_to_olx_live, :update_on_olx, :unpublish_from_olx, :remove_from_olx, :disconnect_from_olx]
 
   def index
+    authorize @shop, :show?
     @products = @shop.products.order(created_at: :desc)
 
     # Filter by OLX status
@@ -29,16 +29,18 @@ class ProductsController < ApplicationController
   end
 
   def show
-    # @shop and @product are already set by before_action filters
+    authorize @product
   end
 
   def new
     @product = @shop.products.new
+    authorize @product
   end
 
   def create
     @product = @shop.products.new(product_params)
     @product.source = 'csv' unless @product.source.present?
+    authorize @product
 
     if @product.save
       redirect_to shop_products_path(@shop), notice: 'Product was successfully created.'
@@ -48,9 +50,11 @@ class ProductsController < ApplicationController
   end
 
   def edit
+    authorize @product
   end
 
   def update
+    authorize @product
     if @product.update(product_params)
       redirect_to shop_product_path(@shop, @product), notice: 'Product was successfully updated.'
     else
@@ -59,6 +63,7 @@ class ProductsController < ApplicationController
   end
 
   def destroy
+    authorize @product
     # Remove from OLX first if published
     if @product.has_olx_listing?
       begin
@@ -75,6 +80,7 @@ class ProductsController < ApplicationController
   end
 
   def bulk_update_margin
+    authorize @shop, :update?
     product_ids = params[:product_ids] || []
     margin = params[:margin]
 
@@ -98,6 +104,7 @@ class ProductsController < ApplicationController
   end
 
   def bulk_destroy
+    authorize @shop, :update?
     product_ids = params[:product_ids] || []
 
     if product_ids.empty?
@@ -142,6 +149,7 @@ class ProductsController < ApplicationController
   # Bulk publish products to OLX live
   #
   def bulk_publish_to_olx
+    authorize @shop, :show?  # All members can sync with OLX
     product_ids = params[:product_ids] || []
 
     if product_ids.empty?
@@ -183,6 +191,7 @@ class ProductsController < ApplicationController
   # Bulk update products on OLX
   #
   def bulk_update_on_olx
+    authorize @shop, :show?  # All members can sync with OLX
     product_ids = params[:product_ids] || []
 
     if product_ids.empty?
@@ -231,6 +240,7 @@ class ProductsController < ApplicationController
   # Bulk remove products from OLX
   #
   def bulk_remove_from_olx
+    authorize @shop, :show?  # All members can sync with OLX
     product_ids = params[:product_ids] || []
 
     if product_ids.empty?
@@ -279,6 +289,7 @@ class ProductsController < ApplicationController
   # Publish product to OLX as draft
   #
   def publish_to_olx
+    authorize @product, :publish_to_olx?
     Rails.logger.info "[Products Controller] Publishing product #{@product.id} to OLX as draft"
 
     begin
@@ -315,6 +326,7 @@ class ProductsController < ApplicationController
   # Publish product to OLX and make it live immediately
   #
   def publish_to_olx_live
+    authorize @product, :publish_to_olx?
     Rails.logger.info "[Products Controller] Publishing product #{@product.id} to OLX live"
 
     begin
@@ -351,6 +363,7 @@ class ProductsController < ApplicationController
   # Unpublish product from OLX (set to draft)
   #
   def unpublish_from_olx
+    authorize @product, :update_on_olx?
     begin
       @product.unpublish_from_olx
       redirect_to shop_product_path(@shop, @product), notice: 'Product unpublished from OLX (set to draft).'
@@ -363,6 +376,7 @@ class ProductsController < ApplicationController
   # Remove product listing from OLX completely
   #
   def remove_from_olx
+    authorize @product, :remove_from_olx?
     begin
       @product.remove_from_olx
       redirect_to shop_product_path(@shop, @product), notice: 'Product removed from OLX completely.'
@@ -378,6 +392,7 @@ class ProductsController < ApplicationController
   # The external_listing_id is saved on the product so it can be reconnected later
   #
   def disconnect_from_olx
+    authorize @product, :remove_from_olx?
     if @product.olx_listing.present?
       # Save the external listing ID to the product before deleting the olx_listing
       # This allows reconnecting to the same listing later
@@ -398,6 +413,7 @@ class ProductsController < ApplicationController
   # Bulk disconnect products from OLX without removing listings from OLX
   #
   def bulk_disconnect_from_olx
+    authorize @shop, :show?  # All members can sync with OLX
     product_ids = params[:product_ids] || []
 
     if product_ids.empty?
@@ -433,6 +449,7 @@ class ProductsController < ApplicationController
   # Update existing OLX listing with latest product data
   #
   def update_on_olx
+    authorize @product, :update_on_olx?
     Rails.logger.info "[Products Controller] Updating OLX listing for product #{@product.id}"
 
     begin
@@ -476,7 +493,7 @@ class ProductsController < ApplicationController
   private
 
   def set_shop
-    @shop = current_user.shops.find(params[:shop_id])
+    @shop = find_shop_with_admin_access(params[:shop_id])
   rescue ActiveRecord::RecordNotFound
     redirect_to shops_path, alert: 'Shop not found or you do not have access.'
   end
@@ -488,13 +505,6 @@ class ProductsController < ApplicationController
     end
   rescue ActiveRecord::RecordNotFound
     redirect_to shop_products_path(@shop), alert: 'Product not found.'
-  end
-
-  def authorize_shop
-    membership = @shop.memberships.find_by(user: current_user)
-    unless membership&.owner? || membership&.admin?
-      redirect_to shop_path(@shop), alert: 'You are not authorized to perform this action.'
-    end
   end
 
   def product_params

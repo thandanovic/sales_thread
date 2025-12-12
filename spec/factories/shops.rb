@@ -1,6 +1,6 @@
 FactoryBot.define do
   factory :shop do
-    name { "MyString" }
-    settings { "MyText" }
+    sequence(:name) { |n| "Shop #{n}" }
+    settings { nil }
   end
 end

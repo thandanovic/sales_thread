@@ -36,6 +36,11 @@ class ApplicationPolicy
     false
   end
 
+  # System admin check - available in all policies
+  def system_admin?
+    user&.system_admin?
+  end
+
   class Scope
     def initialize(user, scope)
       @user = user
@@ -49,5 +54,9 @@ class ApplicationPolicy
     private
 
     attr_reader :user, :scope
+
+    def system_admin?
+      user&.system_admin?
+    end
   end
 end

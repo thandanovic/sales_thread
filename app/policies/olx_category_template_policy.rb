@@ -1,4 +1,4 @@
-class ImportLogPolicy < ApplicationPolicy
+class OlxCategoryTemplatePolicy < ApplicationPolicy
   # View actions - ALL members can view
   def index?
     system_admin? || user_is_member?
@@ -8,24 +8,16 @@ class ImportLogPolicy < ApplicationPolicy
     system_admin? || user_is_member?
   end
 
-  def preview?
-    system_admin? || user_is_member?
-  end
-
-  def progress?
-    system_admin? || user_is_member?
-  end
-
-  # Write actions - only managers can create/run imports
+  # Write actions - only managers can manage templates
   def create?
     system_admin? || user_is_manager?
   end
 
-  def start_processing?
+  def update?
     system_admin? || user_is_manager?
   end
 
-  def retry_import?
+  def destroy?
     system_admin? || user_is_manager?
   end
 

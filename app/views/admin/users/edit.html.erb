@@ -1,0 +1,194 @@
+<% content_for :title, "Edit #{@user.email} - User Management - SLX.ba" %>
+
+<div class="mb-6">
+  <nav class="flex mb-2" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 text-sm">
+      <li><%= link_to "Users", admin_users_path, class: "text-bodydark2 hover:text-primary" %></li>
+      <li><span class="text-bodydark2 mx-2">/</span></li>
+      <li><%= link_to @user.email, admin_user_path(@user), class: "text-bodydark2 hover:text-primary" %></li>
+      <li><span class="text-bodydark2 mx-2">/</span></li>
+      <li class="text-bodydark1">Edit</li>
+    </ol>
+  </nav>
+  <h2 class="text-title-md2 font-bold text-black dark:text-white">Edit User</h2>
+</div>
+
+<div class="rounded-xl border border-stroke bg-white p-6 shadow-default dark:border-strokedark dark:bg-boxdark max-w-2xl">
+  <%= form_with model: [:admin, @user], class: "space-y-6" do |f| %>
+    <% if @user.errors.any? %>
+      <div class="rounded-lg border border-danger/30 bg-danger/10 p-4">
+        <h3 class="font-medium text-danger mb-2"><%= pluralize(@user.errors.count, "error") %> prohibited this user from being saved:</h3>
+        <ul class="list-disc list-inside text-sm text-danger">
+          <% @user.errors.full_messages.each do |msg| %>
+            <li><%= msg %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <div>
+      <%= f.label :email, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+      <%= f.email_field :email, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors" %>
+    </div>
+
+    <div>
+      <%= f.label :password, "New Password", class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+      <%= f.password_field :password, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors", placeholder: "Leave blank to keep current password" %>
+    </div>
+
+    <div>
+      <%= f.label :password_confirmation, class: "mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1" %>
+      <%= f.password_field :password_confirmation, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors" %>
+    </div>
+
+    <div class="flex items-center gap-3 py-2">
+      <%= f.check_box :admin, class: "h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary dark:border-strokedark dark:bg-boxdark" %>
+      <%= f.label :admin, "System Administrator", class: "font-medium text-gray-900 dark:text-white" %>
+      <span class="text-xs text-gray-500 dark:text-bodydark2">(Full access to all shops and admin features)</span>
+    </div>
+
+    <%# Shop Memberships Section %>
+    <div class="rounded-lg border border-gray-200 dark:border-strokedark bg-gray-50 dark:bg-meta-4 p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Shop Memberships</h4>
+          <p class="text-xs text-gray-500 dark:text-bodydark2 mt-0.5">Manage which shops this user has access to</p>
+        </div>
+        <% if @available_shops.any? %>
+          <button type="button" onclick="document.getElementById('add-membership-section').classList.toggle('hidden')" class="text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+            + Add to Shop
+          </button>
+        <% end %>
+      </div>
+
+      <%# Add membership form %>
+      <% if @available_shops.any? %>
+        <div id="add-membership-section" class="hidden mb-4 p-4 rounded-lg border border-gray-200 dark:border-strokedark bg-white dark:bg-boxdark">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
+            <div>
+              <label class="mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1">Shop</label>
+              <div class="relative">
+                <select id="new_shop_id" class="w-full rounded-lg border border-gray-300 bg-white py-3 pl-4 pr-10 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors appearance-none cursor-pointer">
+                  <option value="">-- Select a shop --</option>
+                  <% @available_shops.each do |shop| %>
+                    <option value="<%= shop.id %>"><%= shop.name %></option>
+                  <% end %>
+                </select>
+                <span class="absolute top-1/2 right-4 -translate-y-1/2 pointer-events-none">
+                  <svg class="text-gray-500 dark:text-bodydark2" width="12" height="8" viewBox="0 0 12 8" fill="none">
+                    <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+              </div>
+            </div>
+            <div>
+              <label class="mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1">Role</label>
+              <div class="relative">
+                <select id="new_membership_role" class="w-full rounded-lg border border-gray-300 bg-white py-3 pl-4 pr-10 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors appearance-none cursor-pointer">
+                  <option value="manager">Manager (Full access)</option>
+                  <option value="agent">Agent (Read + OLX sync)</option>
+                </select>
+                <span class="absolute top-1/2 right-4 -translate-y-1/2 pointer-events-none">
+                  <svg class="text-gray-500 dark:text-bodydark2" width="12" height="8" viewBox="0 0 12 8" fill="none">
+                    <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <%= button_to "Add Membership", add_membership_admin_user_path(@user), method: :post, id: "add-membership-btn", class: "inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-opacity-90 transition-colors cursor-pointer", form: { id: 'add-membership-inline-form' } %>
+            <button type="button" onclick="document.getElementById('add-membership-section').classList.add('hidden')" class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-meta-4">
+              Cancel
+            </button>
+          </div>
+          <script>
+            document.getElementById('add-membership-btn').closest('form').addEventListener('submit', function(e) {
+              const shopId = document.getElementById('new_shop_id').value;
+              const role = document.getElementById('new_membership_role').value;
+              if (!shopId) {
+                e.preventDefault();
+                alert('Please select a shop');
+                return;
+              }
+              let shopInput = this.querySelector('input[name="shop_id"]');
+              if (!shopInput) {
+                shopInput = document.createElement('input');
+                shopInput.type = 'hidden';
+                shopInput.name = 'shop_id';
+                this.appendChild(shopInput);
+              }
+              shopInput.value = shopId;
+
+              let roleInput = this.querySelector('input[name="role"]');
+              if (!roleInput) {
+                roleInput = document.createElement('input');
+                roleInput.type = 'hidden';
+                roleInput.name = 'role';
+                this.appendChild(roleInput);
+              }
+              roleInput.value = role;
+            });
+          </script>
+        </div>
+      <% end %>
+
+      <%# Current memberships %>
+      <% if @memberships.any? %>
+        <div class="space-y-2">
+          <% @memberships.each do |membership| %>
+            <div class="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-boxdark border border-gray-100 dark:border-strokedark">
+              <div>
+                <p class="font-medium text-sm text-gray-900 dark:text-white"><%= membership.shop.name %></p>
+                <p class="text-xs text-gray-500 dark:text-bodydark2">Since <%= membership.created_at.strftime("%b %d, %Y") %></p>
+              </div>
+              <div class="flex items-center gap-3">
+                <%= form_with url: update_membership_admin_user_path(@user, membership_id: membership.id), method: :patch, class: "inline-flex" do %>
+                  <div class="relative">
+                    <%= select_tag :role,
+                        options_for_select([["Manager", "manager"], ["Agent", "agent"]], membership.role),
+                        onchange: "this.form.submit()",
+                        class: "rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm text-gray-900 outline-none focus:border-primary dark:border-strokedark dark:bg-meta-4 dark:text-white appearance-none cursor-pointer" %>
+                    <span class="absolute top-1/2 right-2.5 -translate-y-1/2 pointer-events-none">
+                      <svg class="text-gray-500 dark:text-bodydark2" width="10" height="6" viewBox="0 0 12 8" fill="none">
+                        <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
+                  </div>
+                <% end %>
+                <%= button_to remove_membership_admin_user_path(@user, membership_id: membership.id),
+                    method: :delete,
+                    data: { turbo_confirm: "Remove from #{membership.shop.name}?" },
+                    class: "p-1.5 text-gray-400 hover:text-danger transition-colors" do %>
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="text-sm text-gray-500 dark:text-bodydark2 text-center py-3">No shop memberships yet.</p>
+      <% end %>
+    </div>
+
+    <div class="flex gap-3 pt-2">
+      <%= f.submit "Update User", class: "inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-opacity-90 transition-colors cursor-pointer" %>
+      <%= link_to "Cancel", admin_user_path(@user), class: "inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-6 py-3 font-medium text-gray-700 hover:bg-gray-50 transition-colors dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-meta-4" %>
+    </div>
+  <% end %>
+</div>
+
+<% unless @user == true_user %>
+  <div class="mt-6 rounded-xl border border-danger/30 bg-danger/5 p-6 max-w-2xl">
+    <h3 class="text-lg font-semibold text-danger mb-2">Danger Zone</h3>
+    <p class="text-sm text-gray-600 dark:text-bodydark2 mb-4">Deleting a user will remove all their data and cannot be undone.</p>
+    <%= button_to admin_user_path(@user), method: :delete, data: { turbo_confirm: "Are you sure you want to delete #{@user.email}? This action cannot be undone." }, class: "inline-flex items-center justify-center gap-2 rounded-lg bg-danger px-4 py-2.5 font-medium text-white hover:bg-danger/90 transition-colors" do %>
+      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+      </svg>
+      Delete User
+    <% end %>
+  </div>
+<% end %>

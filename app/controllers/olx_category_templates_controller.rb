@@ -2,9 +2,9 @@ class OlxCategoryTemplatesController < ApplicationController
   before_action :authenticate_user!
   before_action :set_shop
   before_action :set_template, only: [:show, :edit, :update, :destroy]
-  before_action :authorize_shop
 
   def index
+    authorize @shop, :show?  # All members can view templates
     @templates = @shop.olx_category_templates.includes(:olx_category, :olx_location).order(created_at: :desc)
   end
 
@@ -134,6 +134,7 @@ class OlxCategoryTemplatesController < ApplicationController
   end
 
   def show
+    authorize @shop, :show?  # All members can view templates
     @products_count = @template.products.count
 
     respond_to do |format|
@@ -143,11 +144,13 @@ class OlxCategoryTemplatesController < ApplicationController
   end
 
   def new
+    authorize @shop, :update?  # Only managers can create templates
     @template = @shop.olx_category_templates.new
     load_categories_and_locations
   end
 
   def create
+    authorize @shop, :update?  # Only managers can create templates
     @template = @shop.olx_category_templates.new(template_params)
 
     if @template.save
@@ -159,10 +162,12 @@ class OlxCategoryTemplatesController < ApplicationController
   end
 
   def edit
+    authorize @shop, :update?  # Only managers can edit templates
     load_categories_and_locations
   end
 
   def update
+    authorize @shop, :update?  # Only managers can update templates
     if @template.update(template_params)
       redirect_to shop_olx_category_templates_path(@shop), notice: 'Template was successfully updated.'
     else
@@ -172,6 +177,7 @@ class OlxCategoryTemplatesController < ApplicationController
   end
 
   def destroy
+    authorize @shop, :update?  # Only managers can delete templates
     @template.destroy
     redirect_to shop_olx_category_templates_path(@shop), notice: 'Template was successfully deleted.'
   end
@@ -179,7 +185,7 @@ class OlxCategoryTemplatesController < ApplicationController
   private
 
   def set_shop
-    @shop = current_user.shops.find(params[:shop_id])
+    @shop = find_shop_with_admin_access(params[:shop_id])
   rescue ActiveRecord::RecordNotFound
     redirect_to shops_path, alert: 'Shop not found or you do not have access.'
   end
@@ -188,13 +194,6 @@ class OlxCategoryTemplatesController < ApplicationController
     @template = @shop.olx_category_templates.find(params[:id])
   rescue ActiveRecord::RecordNotFound
     redirect_to shop_olx_category_templates_path(@shop), alert: 'Template not found.'
-  end
-
-  def authorize_shop
-    membership = @shop.memberships.find_by(user: current_user)
-    unless membership&.owner? || membership&.admin?
-      redirect_to @shop, alert: 'You are not authorized to perform this action.'
-    end
   end
 
   def template_params

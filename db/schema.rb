@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_09_073128) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_11_093103) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -37,6 +37,20 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_09_073128) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "impersonation_logs", force: :cascade do |t|
+    t.integer "admin_user_id", null: false
+    t.integer "impersonated_user_id", null: false
+    t.datetime "started_at", null: false
+    t.datetime "ended_at"
+    t.string "reason"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["admin_user_id", "ended_at"], name: "index_impersonation_logs_on_admin_user_id_and_ended_at"
+    t.index ["admin_user_id"], name: "index_impersonation_logs_on_admin_user_id"
+    t.index ["impersonated_user_id"], name: "index_impersonation_logs_on_impersonated_user_id"
+    t.index ["started_at"], name: "index_impersonation_logs_on_started_at"
   end
 
   create_table "import_logs", force: :cascade do |t|
@@ -226,11 +240,15 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_09_073128) do
     t.string "last_sign_in_ip"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "admin", default: false, null: false
+    t.index ["admin"], name: "index_users_on_admin"
     t.index ["email"], name: "index_users_on_email", unique: true
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "impersonation_logs", "users", column: "admin_user_id"
+  add_foreign_key "impersonation_logs", "users", column: "impersonated_user_id"
   add_foreign_key "import_logs", "olx_category_templates"
   add_foreign_key "import_logs", "shops"
   add_foreign_key "imported_products", "import_logs"
