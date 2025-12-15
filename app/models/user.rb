@@ -1,6 +1,6 @@
 class User < ApplicationRecord
-  # Include default devise modules
-  devise :database_authenticatable, :registerable,
+  # Include default devise modules (registration disabled - admins create users)
+  devise :database_authenticatable,
          :rememberable, :trackable, :validatable
 
   # Associations

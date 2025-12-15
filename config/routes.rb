@@ -1,6 +1,6 @@
 Rails.application.routes.draw do
-  # Devise routes for authentication
-  devise_for :users
+  # Devise routes for authentication (registration disabled - admins create users)
+  devise_for :users, skip: [:registrations]
 
   # Root route
   root "home#index"
