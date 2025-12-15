@@ -1,65 +1,54 @@
-<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 py-12 px-4 sm:px-6 lg:px-8">
-  <div class="max-w-md w-full space-y-8">
-    <div class="bg-white rounded-2xl shadow-2xl p-10">
+<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-boxdark-2 py-12 px-4">
+  <div class="max-w-sm w-full">
+    <%# Logo %>
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center gap-2 mb-4">
+        <svg class="h-10 w-10" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="slxGradientLogin" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#3C50E0;stop-opacity:1" />
+              <stop offset="50%" style="stop-color:#007BFF;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#00C6FF;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <circle cx="50" cy="50" r="10" fill="#3C50E0" />
+          <line x1="42" y1="42" x2="20" y2="20" stroke="url(#slxGradientLogin)" stroke-width="4" stroke-linecap="round" />
+          <line x1="58" y1="42" x2="80" y2="20" stroke="url(#slxGradientLogin)" stroke-width="4" stroke-linecap="round" />
+          <line x1="58" y1="58" x2="80" y2="80" stroke="url(#slxGradientLogin)" stroke-width="4" stroke-linecap="round" />
+          <line x1="42" y1="58" x2="20" y2="80" stroke="url(#slxGradientLogin)" stroke-width="4" stroke-linecap="round" />
+          <polyline points="20,32 20,20 32,20" stroke="url(#slxGradientLogin)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <polyline points="68,20 80,20 80,32" stroke="url(#slxGradientLogin)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <polyline points="80,68 80,80 68,80" stroke="url(#slxGradientLogin)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <polyline points="32,80 20,80 20,68" stroke="url(#slxGradientLogin)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        </svg>
+        <span class="text-2xl font-bold">
+          <span class="text-gray-900 dark:text-white">SLX</span><span class="text-primary">.ba</span>
+        </span>
+      </div>
+      <p class="text-gray-500 dark:text-bodydark2">Sign in to your account</p>
+    </div>
+
+    <%= form_for(resource, as: resource_name, url: session_path(resource_name), html: { class: "space-y-5" }) do |f| %>
       <div>
-        <div class="flex justify-center">
-          <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full p-3">
-            <svg class="h-12 w-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
-          </div>
-        </div>
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Welcome back
-        </h2>
-        <p class="mt-2 text-center text-sm text-gray-600">
-          Sign in to your account to continue
-        </p>
+        <%= f.label :email, class: "block text-sm font-medium text-gray-700 dark:text-bodydark1 mb-2" %>
+        <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white transition-colors", placeholder: "you@example.com" %>
       </div>
 
-      <%= form_for(resource, as: resource_name, url: session_path(resource_name), html: { class: "mt-8 space-y-6" }) do |f| %>
-        <div class="rounded-md shadow-sm space-y-4">
-          <div>
-            <%= f.label :email, class: "block text-sm font-medium text-gray-700 mb-1" %>
-            <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200", placeholder: "you@example.com" %>
-          </div>
+      <div>
+        <%= f.label :password, class: "block text-sm font-medium text-gray-700 dark:text-bodydark1 mb-2" %>
+        <%= f.password_field :password, autocomplete: "current-password", class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white transition-colors", placeholder: "Enter your password" %>
+      </div>
 
-          <div>
-            <%= f.label :password, class: "block text-sm font-medium text-gray-700 mb-1" %>
-            <%= f.password_field :password, autocomplete: "current-password", class: "appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200", placeholder: "••••••••" %>
-          </div>
-        </div>
-
-        <% if devise_mapping.rememberable? %>
-          <div class="flex items-center justify-between">
-            <div class="flex items-center">
-              <%= f.check_box :remember_me, class: "h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" %>
-              <%= f.label :remember_me, class: "ml-2 block text-sm text-gray-900" %>
-            </div>
-          </div>
-        <% end %>
-
-        <div>
-          <%= f.submit "Sign in", class: "group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200 transform hover:scale-105 shadow-lg" %>
+      <% if devise_mapping.rememberable? %>
+        <div class="flex items-center">
+          <%= f.check_box :remember_me, class: "h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary dark:border-strokedark dark:bg-boxdark" %>
+          <%= f.label :remember_me, class: "ml-2 text-sm text-gray-600 dark:text-bodydark2" %>
         </div>
       <% end %>
 
-      <div class="mt-6">
-        <div class="relative">
-          <div class="absolute inset-0 flex items-center">
-            <div class="w-full border-t border-gray-300"></div>
-          </div>
-          <div class="relative flex justify-center text-sm">
-            <span class="px-2 bg-white text-gray-500">
-              <%= render "devise/shared/links" %>
-            </span>
-          </div>
-        </div>
+      <div>
+        <%= f.submit "Sign in", class: "w-full rounded-lg bg-primary py-3 px-4 font-medium text-white hover:bg-primary-dark transition-colors cursor-pointer" %>
       </div>
-    </div>
-
-    <p class="mt-4 text-center text-sm text-gray-600">
-      Secure authentication powered by Devise
-    </p>
+    <% end %>
   </div>
 </div>
