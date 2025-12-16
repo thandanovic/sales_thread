@@ -20,6 +20,7 @@ class OlxSetupService
 
   ##
   # Setup all OLX data (categories and locations)
+  # First imports from CSV seed files, then supplements from API if needed
   #
   # @return [Hash] Result with counts and success status
   #
@@ -31,42 +32,61 @@ class OlxSetupService
     Rails.logger.info "[OLX Setup] Starting setup for shop #{shop.id}"
 
     begin
-      # Ensure authenticated
-      logger.info "Step 1: Authenticating with OLX API..."
+      # Step 1: Import categories and attributes from CSV seed files (comprehensive data)
+      logger.info "Step 1: Importing categories from CSV seed files..."
+      csv_categories_result = import_categories_from_csv
+
+      logger.info ""
+      logger.info "Step 2: Importing category attributes from CSV seed files..."
+      csv_attributes_result = import_attributes_from_csv
+
+      # Step 2: Authenticate and try to fetch additional data from API
+      logger.info ""
+      logger.info "Step 3: Authenticating with OLX API..."
       OlxApiService.ensure_authenticated!(shop)
       logger.info "✓ Authentication successful"
 
-      # Fetch categories
+      # Fetch any additional categories from API (in case there are new ones)
       logger.info ""
-      logger.info "Step 2: Fetching categories from OLX..."
-      categories_result = fetch_and_store_categories
-
-      # Fetch category attributes for each category
-      logger.info ""
-      logger.info "Step 3: Fetching category attributes..."
-      attributes_result = fetch_category_attributes
+      logger.info "Step 4: Checking for new categories from OLX API..."
+      api_categories_result = fetch_and_store_categories
 
       # Fetch locations (cities)
       logger.info ""
-      logger.info "Step 4: Fetching cities from OLX..."
+      logger.info "Step 5: Fetching cities from OLX..."
       locations_result = fetch_and_store_locations
+
+      # Import templates from CSV
+      logger.info ""
+      logger.info "Step 6: Importing category templates from CSV..."
+      templates_result = import_templates_from_csv
+
+      # Calculate totals
+      total_categories = OlxCategory.count
+      total_attributes = OlxCategoryAttribute.count
+      total_templates = shop.olx_category_templates.count
 
       logger.info ""
       logger.info "=" * 80
       logger.info "Setup completed successfully!"
       logger.info "Summary:"
-      logger.info "  - Categories: #{categories_result[:created]} created, #{categories_result[:updated]} updated (total: #{categories_result[:total]})"
-      logger.info "  - Attributes: #{attributes_result[:total]} total across all categories"
+      logger.info "  - Categories from CSV: #{csv_categories_result[:created]} created, #{csv_categories_result[:updated]} updated"
+      logger.info "  - Categories from API: #{api_categories_result[:created]} new, #{api_categories_result[:updated]} updated"
+      logger.info "  - Total categories: #{total_categories}"
+      logger.info "  - Attributes from CSV: #{csv_attributes_result[:created]} created, #{csv_attributes_result[:updated]} updated"
+      logger.info "  - Total attributes: #{total_attributes}"
       logger.info "  - Cities: #{locations_result[:created]} created, #{locations_result[:updated]} updated (total: #{locations_result[:total]})"
+      logger.info "  - Templates: #{templates_result[:created]} created, #{templates_result[:updated]} updated (total: #{total_templates})"
       logger.info "=" * 80
 
-      Rails.logger.info "[OLX Setup] Completed: #{categories_result[:total]} categories, #{attributes_result[:total]} attributes, #{locations_result[:total]} cities"
+      Rails.logger.info "[OLX Setup] Completed: #{total_categories} categories, #{total_attributes} attributes, #{locations_result[:total]} cities, #{total_templates} templates"
 
       {
         success: true,
-        categories: categories_result,
-        attributes: attributes_result,
-        locations: locations_result
+        categories: { total: total_categories, csv: csv_categories_result, api: api_categories_result },
+        attributes: { total: total_attributes, csv: csv_attributes_result },
+        locations: locations_result,
+        templates: { total: total_templates, created: templates_result[:created], updated: templates_result[:updated] }
       }
     rescue => e
       logger.error ""
@@ -98,6 +118,40 @@ class OlxSetupService
     logger.info "Fetching locations from OLX..."
     OlxApiService.ensure_authenticated!(shop)
     fetch_and_store_locations
+  end
+
+  ##
+  # Import only from CSV files (without API calls)
+  # Useful for quick setup or when API is not available
+  #
+  def import_from_csv_only
+    logger.info "=" * 80
+    logger.info "Importing OLX data from CSV files only"
+    logger.info "=" * 80
+
+    categories_result = import_categories_from_csv
+    attributes_result = import_attributes_from_csv
+    templates_result = import_templates_from_csv
+
+    total_categories = OlxCategory.count
+    total_attributes = OlxCategoryAttribute.count
+    total_templates = shop.olx_category_templates.count
+
+    logger.info ""
+    logger.info "=" * 80
+    logger.info "CSV Import completed!"
+    logger.info "Summary:"
+    logger.info "  - Categories: #{categories_result[:created]} created, #{categories_result[:updated]} updated (total: #{total_categories})"
+    logger.info "  - Attributes: #{attributes_result[:created]} created, #{attributes_result[:updated]} updated (total: #{total_attributes})"
+    logger.info "  - Templates: #{templates_result[:created]} created, #{templates_result[:updated]} updated (total: #{total_templates})"
+    logger.info "=" * 80
+
+    {
+      success: true,
+      categories: { total: total_categories, created: categories_result[:created], updated: categories_result[:updated] },
+      attributes: { total: total_attributes, created: attributes_result[:created], updated: attributes_result[:updated] },
+      templates: { total: total_templates, created: templates_result[:created], updated: templates_result[:updated] }
+    }
   end
 
   private
@@ -391,5 +445,276 @@ class OlxSetupService
     logger.info "  Locations are optional - products can sync with categories only"
     Rails.logger.info "[OLX Setup] Locations not available (using GPS coordinates): #{e.message}"
     { success: true, total: 0, created: 0, updated: 0 }
+  end
+
+  ##
+  # Import categories from CSV seed file
+  #
+  # @return [Hash] Result with created/updated counts
+  #
+  def import_categories_from_csv
+    csv_path = Rails.root.join('db', 'seeds', 'olx_categories.csv')
+
+    unless File.exist?(csv_path)
+      logger.warn "  ! CSV file not found: #{csv_path}"
+      return { success: false, created: 0, updated: 0, error: 'CSV file not found' }
+    end
+
+    require 'csv'
+
+    created_count = 0
+    updated_count = 0
+    total_count = 0
+
+    CSV.foreach(csv_path, headers: true) do |row|
+      total_count += 1
+      external_id = row['external_id'].to_i
+      name = row['name']
+      slug = row['slug']
+      parent_id = row['parent_id'].present? ? row['parent_id'].to_i : nil
+      has_shipping = row['has_shipping'] == '1' || row['has_shipping'] == 'true'
+      has_brand = row['has_brand'] == '1' || row['has_brand'] == 'true'
+
+      # Parse metadata - handle double-escaped JSON from SQLite export
+      metadata = nil
+      if row['metadata'].present?
+        begin
+          # Remove surrounding quotes if present and unescape
+          metadata_str = row['metadata']
+          metadata_str = metadata_str[1..-2] if metadata_str.start_with?('"') && metadata_str.end_with?('"')
+          metadata_str = metadata_str.gsub('""', '"')
+          metadata = metadata_str
+        rescue => e
+          logger.debug "  Could not parse metadata for category #{external_id}: #{e.message}"
+        end
+      end
+
+      category = OlxCategory.find_or_initialize_by(external_id: external_id)
+
+      if category.new_record?
+        category.name = name
+        category.slug = slug
+        category.parent_id = parent_id
+        category.has_shipping = has_shipping
+        category.has_brand = has_brand
+        category.metadata = metadata
+        category.save!
+        created_count += 1
+        logger.debug "    ✓ Created category: #{name} (ID: #{external_id})"
+      else
+        category.update!(
+          name: name,
+          slug: slug,
+          parent_id: parent_id,
+          has_shipping: has_shipping,
+          has_brand: has_brand,
+          metadata: metadata
+        )
+        updated_count += 1
+        logger.debug "    ✓ Updated category: #{name} (ID: #{external_id})"
+      end
+    end
+
+    logger.info "  ✓ Imported #{total_count} categories from CSV (#{created_count} created, #{updated_count} updated)"
+
+    { success: true, total: total_count, created: created_count, updated: updated_count }
+  rescue => e
+    logger.error "  ✗ Failed to import categories from CSV: #{e.message}"
+    { success: false, created: 0, updated: 0, error: e.message }
+  end
+
+  ##
+  # Import category attributes from CSV seed file
+  #
+  # @return [Hash] Result with created/updated counts
+  #
+  def import_attributes_from_csv
+    csv_path = Rails.root.join('db', 'seeds', 'olx_category_attributes.csv')
+
+    unless File.exist?(csv_path)
+      logger.warn "  ! CSV file not found: #{csv_path}"
+      return { success: false, created: 0, updated: 0, error: 'CSV file not found' }
+    end
+
+    require 'csv'
+
+    created_count = 0
+    updated_count = 0
+    skipped_count = 0
+    total_count = 0
+
+    # Build a lookup of categories by external_id for faster processing
+    category_lookup = OlxCategory.pluck(:external_id, :id).to_h
+
+    CSV.foreach(csv_path, headers: true) do |row|
+      total_count += 1
+      external_id = row['external_id'].present? ? row['external_id'].to_i : nil
+      category_external_id = row['category_external_id'].to_i
+      name = row['name']
+      attribute_type = row['attribute_type']
+      input_type = row['input_type']
+      required = row['required'] == '1' || row['required'] == 'true'
+
+      # Parse options - handle double-escaped JSON from SQLite export
+      options = nil
+      if row['options'].present?
+        begin
+          options_str = row['options']
+          options_str = options_str[1..-2] if options_str.start_with?('"') && options_str.end_with?('"')
+          options_str = options_str.gsub('""', '"')
+          options = options_str
+        rescue => e
+          logger.debug "  Could not parse options for attribute #{name}: #{e.message}"
+        end
+      end
+
+      # Find the category
+      category_id = category_lookup[category_external_id]
+      unless category_id
+        skipped_count += 1
+        logger.debug "  ! Skipping attribute #{name}: category #{category_external_id} not found"
+        next
+      end
+
+      # Find or create attribute
+      attribute = if external_id
+        OlxCategoryAttribute.find_or_initialize_by(olx_category_id: category_id, external_id: external_id)
+      else
+        OlxCategoryAttribute.find_or_initialize_by(olx_category_id: category_id, name: name)
+      end
+
+      if attribute.new_record?
+        attribute.external_id = external_id
+        attribute.name = name
+        attribute.attribute_type = attribute_type
+        attribute.input_type = input_type
+        attribute.required = required
+        attribute.options = options
+        attribute.save!
+        created_count += 1
+        logger.debug "    ✓ Created attribute: #{name} for category #{category_external_id}"
+      else
+        attribute.update!(
+          name: name,
+          attribute_type: attribute_type,
+          input_type: input_type,
+          required: required,
+          options: options
+        )
+        updated_count += 1
+        logger.debug "    ✓ Updated attribute: #{name} for category #{category_external_id}"
+      end
+    end
+
+    logger.info "  ✓ Imported #{total_count} attributes from CSV (#{created_count} created, #{updated_count} updated, #{skipped_count} skipped)"
+
+    { success: true, total: total_count, created: created_count, updated: updated_count, skipped: skipped_count }
+  rescue => e
+    logger.error "  ✗ Failed to import attributes from CSV: #{e.message}"
+    { success: false, created: 0, updated: 0, error: e.message }
+  end
+
+  ##
+  # Import category templates from CSV seed file
+  #
+  # @return [Hash] Result with created/updated counts
+  #
+  def import_templates_from_csv
+    csv_path = Rails.root.join('db', 'seeds', 'olx_category_templates.csv')
+
+    unless File.exist?(csv_path)
+      logger.warn "  ! CSV file not found: #{csv_path}"
+      return { success: false, created: 0, updated: 0, error: 'CSV file not found' }
+    end
+
+    require 'csv'
+
+    created_count = 0
+    updated_count = 0
+    skipped_count = 0
+    total_count = 0
+
+    # Build lookups for categories and locations
+    category_lookup = OlxCategory.pluck(:external_id, :id).to_h
+    location_lookup = OlxLocation.pluck(:external_id, :id).to_h
+
+    CSV.foreach(csv_path, headers: true) do |row|
+      total_count += 1
+      name = row['name']
+      category_external_id = row['category_external_id'].to_i
+      location_external_id = row['location_external_id'].present? ? row['location_external_id'].to_i : nil
+      default_listing_type = row['default_listing_type']
+      default_state = row['default_state']
+      title_template = row['title_template']
+      description_template = row['description_template']
+
+      # Parse JSON fields - Ruby CSV handles escaping properly
+      attribute_mappings = nil
+      if row['attribute_mappings'].present?
+        begin
+          attribute_mappings = JSON.parse(row['attribute_mappings'])
+        rescue => e
+          logger.debug "  Could not parse attribute_mappings for template #{name}: #{e.message}"
+        end
+      end
+
+      description_filter = nil
+      if row['description_filter'].present?
+        begin
+          description_filter = JSON.parse(row['description_filter'])
+        rescue => e
+          logger.debug "  Could not parse description_filter for template #{name}: #{e.message}"
+        end
+      end
+
+      # Find the category
+      category_id = category_lookup[category_external_id]
+      unless category_id
+        skipped_count += 1
+        logger.debug "  ! Skipping template #{name}: category #{category_external_id} not found"
+        next
+      end
+
+      # Find the location (optional)
+      location_id = location_external_id ? location_lookup[location_external_id] : nil
+
+      # Find or create template for this shop
+      template = shop.olx_category_templates.find_or_initialize_by(
+        name: name,
+        olx_category_id: category_id
+      )
+
+      if template.new_record?
+        template.olx_location_id = location_id
+        template.default_listing_type = default_listing_type
+        template.default_state = default_state
+        template.attribute_mappings = attribute_mappings
+        template.description_filter = description_filter
+        template.title_template = title_template
+        template.description_template = description_template
+        template.save!
+        created_count += 1
+        logger.debug "    ✓ Created template: #{name}"
+      else
+        template.update!(
+          olx_location_id: location_id,
+          default_listing_type: default_listing_type,
+          default_state: default_state,
+          attribute_mappings: attribute_mappings,
+          description_filter: description_filter,
+          title_template: title_template,
+          description_template: description_template
+        )
+        updated_count += 1
+        logger.debug "    ✓ Updated template: #{name}"
+      end
+    end
+
+    logger.info "  ✓ Imported #{total_count} templates from CSV (#{created_count} created, #{updated_count} updated, #{skipped_count} skipped)"
+
+    { success: true, total: total_count, created: created_count, updated: updated_count, skipped: skipped_count }
+  rescue => e
+    logger.error "  ✗ Failed to import templates from CSV: #{e.message}"
+    { success: false, created: 0, updated: 0, error: e.message }
   end
 end

@@ -303,9 +303,8 @@ class ScraperService
     env_vars[:PRODUCT_URL] = product_url if product_url
 
     # Pass existing source_ids to skip re-scraping (comma-separated)
-    if existing_source_ids.any?
-      env_vars[:EXISTING_SOURCE_IDS] = existing_source_ids.join(',')
-    end
+    # IMPORTANT: Always set this value (even if empty) to clear stale data from previous runs
+    env_vars[:EXISTING_SOURCE_IDS] = existing_source_ids.any? ? existing_source_ids.join(',') : ''
 
     update_env(env_vars)
 

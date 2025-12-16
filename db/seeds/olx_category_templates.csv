@@ -1,0 +1,67 @@
+id,name,category_external_id,category_name,location_external_id,location_name,default_listing_type,default_state,attribute_mappings,description_filter,title_template,description_template
+1,Tyre,940,"Gume za automobile",133,"Sarajevo - Centar",sell,new,,"[""namjena"",""sirina"",""profil"",""promjer"",""sezona"",""klasa"",""brend"",""profil_gume"",""index_nosivosti"",""indeks_brzine"",""stari_dot"",""oznaka_ms"",""brand""]","{brend} {title} Zimske Gume",
+2,Batteries,1446,"Akumulatori za automobile",133,"Sarajevo - Centar",sell,new,"{""5078"":""extract:Kapacitet baterije"",""2513"":""extract:Vrsta održavanja"",""2515"":"""",""2514"":""""}","[""Namjena"",""Primjena"",""Kapacitet baterije"",""Struja hladnog starta"",""Proizvođač akumulatora"",""Tip akumulatora"",""Polaritet akumulatora"",""Vrsta održavanja"",""Tip"",""Dužina"",""Širina"",""Visina"",""Vrsta klema"",""Težina akumulatora"",""Vrsta učvršćivanja akumulatora"",""Nazivni napon"","""",""""]","{proizvodac_akumulatora} Akumulator {title} {tip_akumulatora} {kapacitet_baterije}",
+3,"Motor Oil",1455,"Ulja za automobile",133,"Sarajevo - Centar",sell,new,"{""2540"":""fixed:Ostalo"",""2542"":"""",""2541"":""""}","[""Naziv"",""Proizvođač"",""Viskozitet"",""Kapacitet"",""Norma"",""API specifikacija"",""ACEA specifikacija"",""Linija proizvoda"",""Podjela piktograma"",""Namjena"","""","""","""",""""]","{naziv} {viskozitet} {proizvodac} {title}",
+4,"Mobiteli - No Location (Auto-created from sync)",31,Mobiteli,,,sell,none,,,,
+5,"Kuhinjski pribor - No Location (Auto-created from sync)",731,"Kuhinjski pribor",,,sell,new,,,,
+6,"Dijelovi i oprema za motorne pile (Motorke) - No Location (Auto-created from sync)",2553,"Dijelovi i oprema za motorne pile (Motorke)",,,sell,new,,,,
+7,"Špule volana za automobile - No Location (Auto-created from sync)",2460,"Špule volana za automobile",,,sell,used,,,,
+8,"Automobili - No Location (Auto-created from sync)",18,Automobili,,,sell,used,,,,
+9,"Kvačila za automobile - No Location (Auto-created from sync)",1474,"Kvačila za automobile",,,sell,used,,,,
+10,"Muški parfemi - No Location (Auto-created from sync)",1370,"Muški parfemi",,,sell,new,,,,
+11,"Stanovi i apartmani - No Location (Auto-created from sync)",23,"Stanovi i apartmani",,,rent,used,,,,
+12,"Veš mašine i Sušilice - No Location (Auto-created from sync)",1887,"Veš mašine i Sušilice",,,sell,used,,,,
+13,"Laptopi - No Location (Auto-created from sync)",39,Laptopi,,,sell,used,,,,
+14,"Igre za PC i konzole - No Location (Auto-created from sync)",290,"Igre za PC i konzole",,,sell,used,,,,
+15,"Gume za automobile - No Location (Auto-created from sync)",940,"Gume za automobile",,,sell,used,,,,
+16,"Teretna vozila - No Location (Auto-created from sync)",20,"Teretna vozila",,,sell,used,,,,
+17,"Dizne za automobile - No Location (Auto-created from sync)",1478,"Dizne za automobile",,,sell,used,,,,
+18,"Filteri za automobile - No Location (Auto-created from sync)",1434,"Filteri za automobile",,,sell,new,,,,
+19,"Sijalice za automobile - No Location (Auto-created from sync)",1453,"Sijalice za automobile",,,sell,new,,,,
+20,"Ulja za automobile - No Location (Auto-created from sync)",1455,"Ulja za automobile",,,sell,new,,,,
+21,"Akumulatori za automobile - No Location (Auto-created from sync)",1446,"Akumulatori za automobile",,,sell,new,,,,
+22,"Balasti za automobile - No Location (Auto-created from sync)",2501,"Balasti za automobile",,,sell,new,,,,
+23,"Dizalice za automobile - No Location (Auto-created from sync)",1486,"Dizalice za automobile",,,sell,new,,,,
+24,"Izduvni sistemi za automobile - No Location (Auto-created from sync)",945,"Izduvni sistemi za automobile",,,sell,new,,,,
+25,"Kablovi i konektori za automobile - No Location (Auto-created from sync)",1599,"Kablovi i konektori za automobile",,,sell,new,,,,
+26,"Žmigavci za automobile - No Location (Auto-created from sync)",1541,"Žmigavci za automobile",,,sell,new,,,,
+27,"Unutrašnje osvjetljenje za automobile - No Location (Auto-created from sync)",2557,"Unutrašnje osvjetljenje za automobile",,,sell,new,,,,
+28,"Okviri tablica za automobile - No Location (Auto-created from sync)",2125,"Okviri tablica za automobile",,,sell,new,,,,
+29,"Kapice za automobilske gume - No Location (Auto-created from sync)",1476,"Kapice za automobilske gume",,,sell,new,,,,
+30,"Prekidači za automobile - No Location (Auto-created from sync)",1450,"Prekidači za automobile",,,sell,new,,,,
+31,"Branici, karambolke i spojleri za automobile - No Location (Auto-created from sync)",944,"Branici, karambolke i spojleri za automobile",,,sell,new,,,,
+32,"Lanci za snijeg automobilskih guma - No Location (Auto-created from sync)",1812,"Lanci za snijeg automobilskih guma",,,sell,new,,,,
+33,"FM transmiteri za automobile - No Location (Auto-created from sync)",2401,"FM transmiteri za automobile",,,sell,new,,,,
+34,"Autopresvlake - No Location (Auto-created from sync)",2028,Autopresvlake,,,sell,new,,,,
+35,"Tuning za automobile - No Location (Auto-created from sync)",948,"Tuning za automobile",,,sell,new,,,,
+36,"Senzori za automobile - No Location (Auto-created from sync)",1470,"Senzori za automobile",,,sell,new,,,,
+37,"Ratkape za automobile - No Location (Auto-created from sync)",1454,"Ratkape za automobile",,,sell,new,,,,
+38,"Maglenke za automobile - No Location (Auto-created from sync)",2015,"Maglenke za automobile",,,sell,new,,,,
+39,"Ostali dijelovi za automobile - No Location (Auto-created from sync)",947,"Ostali dijelovi za automobile",,,sell,new,,,,
+40,"Selotejp i trake - No Location (Auto-created from sync)",2632,"Selotejp i trake",,,sell,new,,,,
+41,"Zvučnici za automobile - No Location (Auto-created from sync)",1566,"Zvučnici za automobile",,,sell,new,,,,
+42,"Farovi i Štopke za automobile - No Location (Auto-created from sync)",939,"Farovi i Štopke za automobile",,,sell,new,,,,
+43,"Brisači za automobile - No Location (Auto-created from sync)",1440,"Brisači za automobile",,,sell,new,,,,
+44,"Antifrizi i permanti za automobile - No Location (Auto-created from sync)",2606,"Antifrizi i permanti za automobile",,,sell,new,,,,
+45,"Sajle za automobile - No Location (Auto-created from sync)",2144,"Sajle za automobile",,,sell,new,,,,
+46,"Autodijagnostika - No Location (Auto-created from sync)",1603,Autodijagnostika,,,sell,new,,,,
+47,"Plastika za automobile - No Location (Auto-created from sync)",1623,"Plastika za automobile",,,sell,new,,,,
+48,"Baterije i punjači - No Location (Auto-created from sync)",2575,"Baterije i punjači",,,sell,new,,,,
+49,"Maske za automobile - No Location (Auto-created from sync)",1439,"Maske za automobile",,,sell,new,,,,
+50,"Autofolije - No Location (Auto-created from sync)",2587,Autofolije,,,sell,new,,,,
+51,"Rotacije za automobile - No Location (Auto-created from sync)",2605,"Rotacije za automobile",,,sell,new,,,,
+52,"Čepovi felgi za automobile - No Location (Auto-created from sync)",2034,"Čepovi felgi za automobile",,,sell,new,,,,
+53,"Antene za automobile - No Location (Auto-created from sync)",2435,"Antene za automobile",,,sell,new,,,,
+54,"Retrovizori za Automobile",943,"Retrovizori za automobile",132,"Sarajevo - Novi Grad",sell,new,"{""1852"":""{boja} | Neutralno"",""2124"":""{strana_ugradnje} | Ostalo"",""2125"":"""",""1853"":"""",""2838"":""""}","[""Strana ugradnje"",""Vrsta stakla"",""Grijano"",""Boja"",""Konzola"",""Zamjenski dio"","""","""","""","""","""","""","""","""","""","""","""","""",""""]","{sub_title} {models}","{technical_description}
+
+{description}"
+55,Blatobrani,1456,"Blatobrani za automobile",131,"Sarajevo - Novo Sarajevo",sell,new,"{""2117"":""Ostalo"",""2118"":"""",""2544"":""""}","[""Mjesto ugradnje"",""Strana ugradnje"",""S otvorom za žmigavac"",""Vrsta šasije"",""Primjena od"",""Primjena do"",""Zamjenski dio"","""","""","""","""","""",""""]","Blatobran {models}","{technical_description}
+
+{description}
+
+{title}"
+56,"Disk plocice",1472,"Diskovi i pločice za automobile",131,"Sarajevo - Novo Sarajevo",sell,new,"{""2579"":""Ostalo"",""2107"":""Ostalo"",""2108"":"""",""2578"":"""",""2577"":""""}","[""Mjesto ugradnje"",""Strana ugradnje"",""S otvorom za žmigavac"",""Vrsta šasije"",""Primjena od"",""Primjena do"",""Zamjenski dio"","""","""","""","""","""",""""]","{sub_title} {models}","{technical_description}
+
+{description}
+
+{title}"

@@ -141,31 +141,58 @@ class OlxListingService
   # Update existing OLX listing
   #
   # @param olx_listing [OlxListing] Listing to update
+  # @param skip_images [Boolean] If true, skip image upload (useful for products synced from OLX)
   # @return [OlxListing] Updated listing
   #
-  def update_listing(olx_listing)
+  def update_listing(olx_listing, skip_images: nil)
     raise ArgumentError, 'Listing must have external_listing_id' unless olx_listing.external_listing_id.present?
 
     begin
       Rails.logger.info "[OLX Listing] Updating listing #{olx_listing.external_listing_id} for product #{product.id}"
+
+      # IMPORTANT: Check for existing images BEFORE the update (response may not include images)
+      should_skip_images = skip_images
+      if should_skip_images.nil?
+        # Auto-detect: skip images for OLX-synced products that already have images on OLX
+        if product.source == 'olx' && olx_listing.metadata.present?
+          existing_images = olx_listing.metadata['images'] ||
+                           olx_listing.metadata['photos'] ||
+                           olx_listing.metadata['pictures'] || []
+          should_skip_images = existing_images.any?
+          if should_skip_images
+            Rails.logger.info "[OLX Listing] Will skip image upload - listing already has #{existing_images.length} images on OLX"
+          end
+        end
+      end
 
       payload = build_listing_payload
       Rails.logger.info "[OLX Listing] Update payload: #{payload.inspect}"
 
       response = OlxApiService.put("/listings/#{olx_listing.external_listing_id}", payload, shop)
 
+      # Preserve existing images in metadata if response doesn't include them
+      merged_metadata = response
+      if should_skip_images && olx_listing.metadata.present?
+        original_images = olx_listing.metadata['images'] || olx_listing.metadata['photos'] || olx_listing.metadata['pictures']
+        if original_images.present? && !merged_metadata['images'].present?
+          merged_metadata['images'] = original_images
+        end
+      end
+
       olx_listing.update!(
         status: response['status']&.downcase || olx_listing.status,
-        metadata: response
+        metadata: merged_metadata
       )
 
       Rails.logger.info "[OLX Listing] ✓ Successfully updated listing #{olx_listing.external_listing_id}"
 
-      # Upload images if product has image URLs
-      if product.image_urls.present? && product.image_urls.any?
+      # Upload images only if not skipped and product has image URLs
+      if !should_skip_images && product.image_urls.present? && product.image_urls.any?
         Rails.logger.info "[OLX Listing] Uploading #{product.image_urls.length} images to existing listing..."
         uploaded_images = OlxApiService.upload_images(olx_listing.external_listing_id, product.image_urls, shop)
         Rails.logger.info "[OLX Listing] ✓ Uploaded #{uploaded_images.length} images"
+      elsif should_skip_images
+        Rails.logger.info "[OLX Listing] Image upload skipped (images already exist on OLX)"
       else
         Rails.logger.info "[OLX Listing] No images to upload"
       end

@@ -11,6 +11,9 @@ class ImportsController < ApplicationController
   def new
     authorize @shop, :update?  # Only managers can create imports
     @import = @shop.import_logs.new
+
+    # Load saved Intercars credentials if they exist
+    @intercars_credentials = @shop.integration_credentials('intercars')
   end
 
   def create
@@ -24,9 +27,25 @@ class ImportsController < ApplicationController
       # Handle CSV upload
       handle_csv_upload(params[:csv_file])
     elsif @import.source == 'intercars'
+      username = params[:username]
+      password = params[:password]
+
+      # If password is blank, try to use saved credentials
+      if password.blank?
+        saved_credentials = @shop.integration_credentials('intercars')
+        if saved_credentials.present? && saved_credentials['username'] == username
+          password = saved_credentials['password']
+        else
+          @import.errors.add(:base, 'Password is required (no saved credentials found for this username)')
+          @intercars_credentials = @shop.integration_credentials('intercars')
+          render :new, status: :unprocessable_entity
+          return
+        end
+      end
+
       # Save scraper metadata
       metadata = {
-        username: params[:username],
+        username: username,
         product_url: params[:product_url],
         max_products: params[:max_products]&.to_i || 50,
         save_credentials: params[:save_credentials] == '1'
@@ -35,15 +54,15 @@ class ImportsController < ApplicationController
       @import.metadata = metadata.to_json
 
       if @import.save
-        # Save credentials if requested
-        if metadata[:save_credentials]
-          @shop.set_integration_credentials('intercars', params[:username], params[:password])
+        # Save/update credentials if requested
+        if metadata[:save_credentials] && params[:password].present?
+          @shop.set_integration_credentials('intercars', username, password)
           @shop.save!
         end
 
         # Start scraping based on run_mode
         run_mode = params[:run_mode] || 'background'
-        process_scraper_import_with_params(params[:username], params[:password], metadata[:product_url], metadata[:max_products], run_mode: run_mode)
+        process_scraper_import_with_params(username, password, metadata[:product_url], metadata[:max_products], run_mode: run_mode)
       else
         render :new, status: :unprocessable_entity
       end

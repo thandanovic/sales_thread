@@ -218,8 +218,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   let placeholdersLoaded = false;
 
+  // Auto-load attributes if template has existing mappings
   <% if template.persisted? && template.attribute_mappings.present? %>
-    loadAttributesBtn.click();
+    // Delay to ensure all event listeners are attached
+    setTimeout(function() {
+      loadAttributesBtn.click();
+    }, 100);
   <% end %>
 
   showPlaceholdersBtn.addEventListener('click', function() {

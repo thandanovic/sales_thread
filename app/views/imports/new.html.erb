@@ -103,19 +103,38 @@
           <p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">If selected, imported products will be automatically assigned this template for OLX publishing</p>
         </div>
 
+        <% has_saved_credentials = @intercars_credentials.present? && @intercars_credentials['username'].present? %>
+
+        <% if has_saved_credentials %>
+          <div class="rounded-lg bg-success/10 border border-success/30 p-4 mb-4">
+            <div class="flex items-center gap-3">
+              <svg class="h-5 w-5 text-success flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+              </svg>
+              <p class="text-sm text-success">
+                <strong>Saved credentials found</strong> for <%= @intercars_credentials['username'] %>
+                <span class="text-gray-500 dark:text-bodydark2">(saved <%= time_ago_in_words(Time.parse(@intercars_credentials['updated_at'])) %> ago)</span>
+              </p>
+            </div>
+          </div>
+        <% end %>
+
         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div>
             <label class="mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1">
               Intercars Username/Email
             </label>
-            <%= text_field_tag :username, nil, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors", placeholder: "your-email@example.com", required: true %>
+            <%= text_field_tag :username, @intercars_credentials&.dig('username'), class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors", placeholder: "your-email@example.com", required: true %>
           </div>
 
           <div>
             <label class="mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1">
               Password
+              <% if has_saved_credentials %>
+                <span class="text-xs text-gray-500 dark:text-bodydark2 font-normal">(leave blank to use saved password)</span>
+              <% end %>
             </label>
-            <%= password_field_tag :password, nil, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors", placeholder: "••••••••", required: true %>
+            <%= password_field_tag :password, nil, class: "w-full rounded-lg border border-gray-300 bg-white py-3 px-4 text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white dark:focus:border-primary transition-colors", placeholder: has_saved_credentials ? "••••••••" : "Enter password", required: !has_saved_credentials %>
           </div>
         </div>
 
@@ -136,9 +155,9 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <%= check_box_tag :save_credentials, '1', false, class: "h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary dark:border-strokedark dark:bg-boxdark" %>
+          <%= check_box_tag :save_credentials, '1', has_saved_credentials, class: "h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary dark:border-strokedark dark:bg-boxdark" %>
           <label class="text-sm text-gray-700 dark:text-bodydark1">
-            Save credentials for future imports (encrypted)
+            <%= has_saved_credentials ? "Update saved credentials" : "Save credentials for future imports (encrypted)" %>
           </label>
         </div>
 

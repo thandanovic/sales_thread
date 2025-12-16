@@ -95,7 +95,7 @@ class ShopsController < ApplicationController
       # To sync specific categories, pass category_ids: [18, 31, ...]
       # skip_existing: true means only import new products, don't update existing ones
       sync_options = {
-        limit: params[:limit]&.to_i || 200,
+        limit: params[:limit]&.to_i || 500,
         status_filter: params[:status_filter]&.split(',') || ['active'],
         skip_existing: params[:skip_existing] != 'false' # Default to true, unless explicitly set to 'false'
       }
@@ -155,26 +155,47 @@ class ShopsController < ApplicationController
       result = OlxSetupService.new(@shop).setup_all
 
       if result[:success]
-        categories = result[:categories]
-        attributes = result[:attributes]
-        locations = result[:locations]
+        categories = result[:categories] || {}
+        attributes = result[:attributes] || {}
+        locations = result[:locations] || {}
+        templates = result[:templates] || {}
 
-        if categories[:total] > 0
+        total_categories = categories[:total] || 0
+        total_attributes = attributes[:total] || 0
+        total_locations = locations[:total] || 0
+        total_templates = templates[:total] || 0
+
+        # Extract created/updated counts - handle both old and new result structure
+        cat_csv = categories[:csv] || {}
+        cat_api = categories[:api] || {}
+        cat_created = (cat_csv[:created] || 0) + (cat_api[:created] || 0)
+        cat_updated = (cat_csv[:updated] || 0) + (cat_api[:updated] || 0)
+
+        attr_csv = attributes[:csv] || {}
+        attr_created = attr_csv[:created] || 0
+        attr_updated = attr_csv[:updated] || 0
+
+        loc_created = locations[:created] || 0
+        loc_updated = locations[:updated] || 0
+
+        tpl_created = templates[:created] || 0
+        tpl_updated = templates[:updated] || 0
+
+        if total_categories > 0
           message = "Successfully set up OLX data: "
           parts = []
-          parts << "#{categories[:created]} categories created" if categories[:created] > 0
-          parts << "#{categories[:updated]} categories updated" if categories[:updated] > 0
-          parts << "#{attributes[:total]} attributes" if attributes && attributes[:total] > 0
-          parts << "#{locations[:created]} cities created" if locations[:created] > 0
-          parts << "#{locations[:updated]} cities updated" if locations[:updated] > 0
+          parts << "#{cat_created} categories created" if cat_created > 0
+          parts << "#{cat_updated} categories updated" if cat_updated > 0
+          parts << "#{total_attributes} attributes" if total_attributes > 0
+          parts << "#{loc_created} cities created" if loc_created > 0
+          parts << "#{loc_updated} cities updated" if loc_updated > 0
+          parts << "#{tpl_created} templates created" if tpl_created > 0
+          parts << "#{tpl_updated} templates updated" if tpl_updated > 0
 
           if parts.any?
             message += parts.join(", ") + "."
           else
-            cat_msg = "#{categories[:total]} categories"
-            attr_msg = attributes && attributes[:total] > 0 ? ", #{attributes[:total]} attributes" : ""
-            loc_msg = locations[:total] > 0 ? ", #{locations[:total]} cities" : ""
-            message = "OLX data already up to date (#{cat_msg}#{attr_msg}#{loc_msg})."
+            message = "OLX data already up to date (#{total_categories} categories, #{total_attributes} attributes, #{total_templates} templates)."
           end
 
           flash[:notice] = message

@@ -47,92 +47,110 @@ class OlxSyncService
   def sync_products(limit: 10, status_filter: ['active'], category_ids: nil, skip_existing: false)
     sync_logger.info "=" * 80
     sync_logger.info "Starting OLX Sync for Shop ##{shop.id} - #{shop.name}"
-    sync_logger.info "Limit: #{limit} products"
+    sync_logger.info "Target: #{limit} products to sync (not counting skipped)"
     sync_logger.info "Status Filter: #{status_filter.join(', ')}" if status_filter.present?
     sync_logger.info "Category Filter: #{category_ids.join(', ')}" if category_ids.present?
     sync_logger.info "Skip Existing: #{skip_existing ? 'YES (only import new)' : 'NO (update existing)'}"
     sync_logger.info "=" * 80
 
-    Rails.logger.info "[OLX Sync] Starting sync for shop #{shop.id} (limit: #{limit})"
+    Rails.logger.info "[OLX Sync] Starting sync for shop #{shop.id} (target: #{limit} products)"
 
     # Ensure authenticated
     sync_logger.info "Step 1: Authenticating with OLX API..."
     OlxApiService.ensure_authenticated!(shop)
     sync_logger.info "✓ Authentication successful"
 
-    # Fetch all listings from OLX
-    sync_logger.info "Step 2: Fetching listings from OLX..."
-    olx_listings = fetch_all_listings(limit: limit)
-
-    if olx_listings.empty?
-      sync_logger.info "No listings found on OLX"
-      Rails.logger.info "[OLX Sync] No listings found on OLX"
-      return { success: true, imported: 0, updated: 0, skipped: 0 }
-    end
-
-    sync_logger.info "✓ Found #{olx_listings.length} listings on OLX"
-    Rails.logger.info "[OLX Sync] Found #{olx_listings.length} listings on OLX"
-
     imported_count = 0
     updated_count = 0
     skipped_count = 0
     failed_count = 0
+    total_processed = 0
+    page = 1
+    per_page = 50
 
     sync_logger.info ""
-    sync_logger.info "Step 3: Processing listings..."
+    sync_logger.info "Step 2: Fetching and processing listings from OLX..."
     sync_logger.info "-" * 80
 
-    olx_listings.each_with_index do |listing, index|
+    # Keep fetching pages until we have enough successfully synced products
+    loop do
       sync_logger.info ""
-      sync_logger.info "Processing listing #{index + 1}/#{olx_listings.length}:"
-      sync_logger.info "  OLX ID: #{listing['id']}"
-      sync_logger.info "  Title: #{listing['title']}"
-      sync_logger.info "  Price: #{listing['price']} #{listing['currency']}"
-      sync_logger.info "  Status: #{listing['status']}"
+      sync_logger.info "Fetching page #{page}..."
 
-      # Apply status filter
-      if status_filter.present? && !status_filter.include?(listing['status'])
-        sync_logger.info "  ⊘ FILTERED: Status '#{listing['status']}' not in filter #{status_filter.inspect}"
-        skipped_count += 1
-        next
+      olx_listings = fetch_listings_page(page: page, per_page: per_page)
+
+      if olx_listings.empty?
+        sync_logger.info "No more listings found on OLX"
+        break
       end
 
-      # Apply category filter (requires fetching full listing first)
-      if category_ids.present?
-        # Need to fetch full listing to get category_id
-        full_listing = fetch_full_listing_details(listing['id'])
-        if full_listing && !category_ids.include?(full_listing['category_id'])
-          sync_logger.info "  ⊘ FILTERED: Category ID #{full_listing['category_id']} not in filter #{category_ids.inspect}"
+      sync_logger.info "✓ Found #{olx_listings.length} listings on page #{page}"
+
+      olx_listings.each do |listing|
+        total_processed += 1
+
+        sync_logger.info ""
+        sync_logger.info "Processing listing #{total_processed}:"
+        sync_logger.info "  OLX ID: #{listing['id']}"
+        sync_logger.info "  Title: #{listing['title']}"
+        sync_logger.info "  Price: #{listing['price']} #{listing['currency']}"
+        sync_logger.info "  Status: #{listing['status']}"
+
+        # Apply status filter
+        if status_filter.present? && !status_filter.include?(listing['status'])
+          sync_logger.info "  ⊘ FILTERED: Status '#{listing['status']}' not in filter #{status_filter.inspect}"
           skipped_count += 1
           next
         end
-      end
 
-      Rails.logger.info "[OLX Sync] Processing listing #{index + 1}/#{olx_listings.length}: #{listing['id']}"
-
-      begin
-        result = sync_single_listing(listing, skip_existing: skip_existing)
-
-        case result
-        when :created
-          imported_count += 1
-          sync_logger.info "  ✓ Result: NEW product created"
-        when :updated
-          updated_count += 1
-          sync_logger.info "  ✓ Result: EXISTING product updated"
-        when :skipped
-          skipped_count += 1
-          sync_logger.info "  ⊘ Result: SKIPPED"
-        when :failed
-          failed_count += 1
-          sync_logger.info "  ✗ Result: FAILED"
+        # Apply category filter (requires fetching full listing first)
+        if category_ids.present?
+          full_listing = fetch_full_listing_details(listing['id'])
+          if full_listing && !category_ids.include?(full_listing['category_id'])
+            sync_logger.info "  ⊘ FILTERED: Category ID #{full_listing['category_id']} not in filter #{category_ids.inspect}"
+            skipped_count += 1
+            next
+          end
         end
-      rescue => e
-        failed_count += 1
-        sync_logger.error "  ✗ EXCEPTION: #{e.class} - #{e.message}"
-        sync_logger.error "  Backtrace: #{e.backtrace.first(3).join(' | ')}"
-        Rails.logger.error "[OLX Sync] Error syncing listing #{listing['id']}: #{e.message}"
+
+        Rails.logger.info "[OLX Sync] Processing listing #{total_processed}: #{listing['id']}"
+
+        begin
+          result = sync_single_listing(listing, skip_existing: skip_existing)
+
+          case result
+          when :created
+            imported_count += 1
+            sync_logger.info "  ✓ Result: NEW product created (#{imported_count + updated_count}/#{limit})"
+          when :updated
+            updated_count += 1
+            sync_logger.info "  ✓ Result: EXISTING product updated (#{imported_count + updated_count}/#{limit})"
+          when :skipped
+            skipped_count += 1
+            sync_logger.info "  ⊘ Result: SKIPPED (not counted toward limit)"
+          when :failed
+            failed_count += 1
+            sync_logger.info "  ✗ Result: FAILED"
+          end
+        rescue => e
+          failed_count += 1
+          sync_logger.error "  ✗ EXCEPTION: #{e.class} - #{e.message}"
+          sync_logger.error "  Backtrace: #{e.backtrace.first(3).join(' | ')}"
+          Rails.logger.error "[OLX Sync] Error syncing listing #{listing['id']}: #{e.message}"
+        end
+
+        # Check if we've reached our target of successfully synced products
+        if (imported_count + updated_count) >= limit
+          sync_logger.info ""
+          sync_logger.info "✓ Reached target of #{limit} successfully synced products"
+          break
+        end
       end
+
+      # Break outer loop if we've reached our target
+      break if (imported_count + updated_count) >= limit
+
+      page += 1
     end
 
     sync_logger.info ""
@@ -143,7 +161,7 @@ class OlxSyncService
     sync_logger.info "  - Existing products updated: #{updated_count}"
     sync_logger.info "  - Skipped: #{skipped_count}"
     sync_logger.info "  - Failed: #{failed_count}"
-    sync_logger.info "  - Total processed: #{olx_listings.length}"
+    sync_logger.info "  - Total listings processed: #{total_processed}"
     sync_logger.info "=" * 80
 
     Rails.logger.info "[OLX Sync] Completed: #{imported_count} imported, #{updated_count} updated, #{skipped_count} skipped, #{failed_count} failed"
@@ -231,6 +249,45 @@ class OlxSyncService
   rescue => e
     sync_logger.error "  ✗ Error fetching listings: #{e.message}"
     Rails.logger.error "[OLX Sync] Error fetching listings: #{e.message}"
+    []
+  end
+
+  ##
+  # Fetch a single page of listings from OLX API
+  #
+  # @param page [Integer] Page number to fetch
+  # @param per_page [Integer] Number of listings per page
+  # @return [Array<Hash>] Array of listing objects
+  #
+  def fetch_listings_page(page: 1, per_page: 50)
+    # Ensure shop has user info
+    if shop.olx_user_name.blank?
+      sync_logger.error "  ✗ Shop missing OLX user info. Re-authenticating..."
+      OlxApiService.authenticate(shop)
+      shop.reload
+    end
+
+    unless shop.olx_user_name.present?
+      sync_logger.error "  ✗ Cannot fetch listings: OLX username not available"
+      raise "OLX username not available after authentication"
+    end
+
+    sync_logger.info "  Fetching listings for user: #{shop.olx_user_name} (page #{page})"
+    Rails.logger.info "[OLX Sync] Fetching page #{page} for user #{shop.olx_user_name}"
+
+    # Use the user-specific listings endpoint
+    endpoint = "/users/#{shop.olx_user_name}/listings"
+    response = OlxApiService.get(endpoint, shop, { page: page, per_page: per_page })
+
+    listings = response['data'] || response['listings'] || []
+
+    sync_logger.info "  ✓ Page #{page}: #{listings.length} listings fetched"
+    Rails.logger.info "[OLX Sync] Page #{page}: #{listings.length} listings"
+
+    listings
+  rescue => e
+    sync_logger.error "  ✗ Error fetching listings page #{page}: #{e.message}"
+    Rails.logger.error "[OLX Sync] Error fetching listings page #{page}: #{e.message}"
     []
   end
 
@@ -477,8 +534,12 @@ class OlxSyncService
     # Find or create OLX category
     olx_category = OlxCategory.find_by(external_id: category_id)
     unless olx_category
-      sync_logger.warn "    ! Category #{category_id} not found in local database"
-      return nil
+      sync_logger.info "    ! Category #{category_id} not found locally - fetching from OLX API..."
+      olx_category = fetch_and_create_category(category_id)
+      unless olx_category
+        sync_logger.warn "    ! Could not fetch category #{category_id} from API"
+        return nil
+      end
     end
 
     # Find or create OLX location (optional - may not exist for GPS-based listings)
@@ -596,6 +657,100 @@ class OlxSyncService
       'draft'
     else
       'draft'
+    end
+  end
+
+  ##
+  # Fetch a category from OLX API and create it locally
+  #
+  # @param category_id [Integer] OLX category external ID
+  # @return [OlxCategory, nil] Created category or nil if failed
+  #
+  def fetch_and_create_category(category_id)
+    sync_logger.info "      Fetching category #{category_id} from OLX API..."
+
+    begin
+      response = OlxApiService.get("/categories/#{category_id}", shop)
+      category_data = response['data'] || response
+
+      return nil unless category_data && category_data['id']
+
+      name = category_data['name'] || "Category #{category_id}"
+      parent_id = category_data['parent_id']
+      slug = category_data['slug']
+      has_brand = category_data['show_brand'] || false
+      has_shipping = category_data['shipping_available'] || false
+
+      # If there's a parent category, fetch it first recursively
+      if parent_id.present?
+        parent_category = OlxCategory.find_by(external_id: parent_id)
+        unless parent_category
+          sync_logger.info "      Parent category #{parent_id} not found - fetching..."
+          fetch_and_create_category(parent_id)
+        end
+      end
+
+      # Create the category
+      olx_category = OlxCategory.find_or_create_by!(external_id: category_id) do |cat|
+        cat.name = name
+        cat.parent_id = parent_id
+        cat.slug = slug
+        cat.has_brand = has_brand
+        cat.has_shipping = has_shipping
+        cat.metadata = category_data.to_json
+      end
+
+      sync_logger.info "      ✓ Created category: #{name} (ID: #{category_id})"
+
+      # Also fetch category attributes
+      fetch_category_attributes_for(olx_category)
+
+      olx_category
+    rescue => e
+      sync_logger.error "      ✗ Failed to fetch category #{category_id}: #{e.message}"
+      Rails.logger.error "[OLX Sync] Failed to fetch category #{category_id}: #{e.message}"
+      nil
+    end
+  end
+
+  ##
+  # Fetch attributes for a specific category
+  #
+  # @param olx_category [OlxCategory] The category to fetch attributes for
+  #
+  def fetch_category_attributes_for(olx_category)
+    sync_logger.info "      Fetching attributes for category #{olx_category.name}..."
+
+    begin
+      response = OlxApiService.get("/categories/#{olx_category.external_id}/attributes", shop)
+      attributes_data = response['data'] || response['attributes'] || []
+
+      return if attributes_data.empty?
+
+      attributes_data.each do |attr_data|
+        attr_external_id = attr_data['id']
+        attr_name = attr_data['name']
+        attr_type = attr_data['type']
+        input_type = attr_data['input_type']
+        required = attr_data['required'] || false
+        options = attr_data['options'] || []
+
+        attribute = OlxCategoryAttribute.find_or_initialize_by(
+          olx_category: olx_category,
+          external_id: attr_external_id
+        )
+
+        attribute.name = attr_name
+        attribute.attribute_type = attr_type
+        attribute.input_type = input_type
+        attribute.required = required
+        attribute.options = options.to_json
+        attribute.save!
+      end
+
+      sync_logger.info "      ✓ Created #{attributes_data.length} attributes for #{olx_category.name}"
+    rescue => e
+      sync_logger.warn "      ! Could not fetch attributes for #{olx_category.name}: #{e.message}"
     end
   end
 end
