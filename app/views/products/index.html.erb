@@ -14,10 +14,25 @@
       }
     } %>
 
-<% if @products.any? || params[:olx_status].present? || params[:template_id].present? %>
+<% if @products.any? || params[:olx_status].present? || params[:template_id].present? || params[:search].present? %>
   <%# Filters Card %>
   <%= render "shared/components/card", title: "Filters" do %>
     <%= form_with url: shop_products_path(@shop), method: :get, class: "flex flex-wrap items-end gap-4" do |f| %>
+      <div class="flex-1 min-w-[250px]">
+        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-bodydark1">Search</label>
+        <div class="flex items-center rounded-lg border border-gray-300 bg-white dark:border-strokedark dark:bg-boxdark focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+          <%= f.text_field :search,
+              value: params[:search],
+              placeholder: "Search title, models, description, OLX ID...",
+              class: "w-full bg-transparent py-2.5 pl-4 pr-2 text-sm text-gray-900 outline-none dark:text-white dark:placeholder-gray-400" %>
+          <span class="pr-3">
+            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </span>
+        </div>
+      </div>
+
       <div class="flex-1 min-w-[180px]">
         <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-bodydark1">OLX Status</label>
         <%= f.select :olx_status,
@@ -136,7 +151,7 @@
         </div>
 
         <%# Delete %>
-        <%= form_with url: bulk_destroy_shop_products_path(@shop), method: :delete, id: "bulk-delete-form", data: { turbo_confirm: "Are you sure? This will permanently delete the selected products." } do |f| %>
+        <%= form_with url: bulk_destroy_shop_products_path(@shop), method: :delete, id: "bulk-delete-form" do |f| %>
           <div class="flex items-center justify-between gap-4 rounded-lg bg-danger/10 p-4">
             <div class="flex items-center gap-3">
               <div class="flex h-10 w-10 items-center justify-center rounded-full bg-danger/20">
@@ -173,7 +188,7 @@
             <% @products.each do |product| %>
               <tr class="border-b border-gray-200 hover:bg-gray-50 dark:border-strokedark dark:hover:bg-boxdark-2 transition-colors">
                 <td class="px-4 py-4">
-                  <input type="checkbox" name="product_ids[]" value="<%= product.id %>" class="product-checkbox h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary">
+                  <input type="checkbox" name="product_ids[]" value="<%= product.id %>" class="product-checkbox h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary" data-has-olx="<%= product.has_olx_listing? %>">
                 </td>
                 <td class="px-4 py-4">
                   <% if product.published_on_olx? %>
@@ -289,11 +304,18 @@
               // Remove existing hidden inputs
               form.querySelectorAll('input[name="product_ids[]"]').forEach(i => i.remove());
 
-              // Add checked product IDs
+              // Add checked product IDs and count OLX products
               let hasChecked = false;
+              let olxProductCount = 0;
+              let totalSelected = 0;
+
               productCheckboxes.forEach(cb => {
                 if (cb.checked) {
                   hasChecked = true;
+                  totalSelected++;
+                  if (cb.dataset.hasOlx === 'true') {
+                    olxProductCount++;
+                  }
                   const input = document.createElement('input');
                   input.type = 'hidden';
                   input.name = 'product_ids[]';
@@ -305,6 +327,20 @@
               if (!hasChecked) {
                 e.preventDefault();
                 alert('Please select at least one product.');
+                return;
+              }
+
+              // Special confirmation for bulk delete
+              if (formId === 'bulk-delete-form') {
+                let confirmMessage = `Are you sure you want to delete ${totalSelected} product(s)?\n\nThis action cannot be undone.`;
+
+                if (olxProductCount > 0) {
+                  confirmMessage = `Are you sure you want to delete ${totalSelected} product(s)?\n\n⚠️ WARNING: ${olxProductCount} product(s) are published on OLX and will be REMOVED from OLX as well.\n\nThis action cannot be undone.`;
+                }
+
+                if (!confirm(confirmMessage)) {
+                  e.preventDefault();
+                }
               }
             });
           }

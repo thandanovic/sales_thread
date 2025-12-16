@@ -7,6 +7,15 @@ class ProductsController < ApplicationController
     authorize @shop, :show?
     @products = @shop.products.order(created_at: :desc)
 
+    # Search filter - search through models, title, sub_title, technical_description, and OLX listing ID
+    if params[:search].present?
+      search_term = "%#{params[:search]}%"
+      @products = @products.left_joins(:olx_listing).where(
+        "products.title ILIKE :search OR products.sub_title ILIKE :search OR products.models ILIKE :search OR products.technical_description ILIKE :search OR olx_listings.external_listing_id ILIKE :search",
+        search: search_term
+      )
+    end
+
     # Filter by OLX status
     if params[:olx_status].present?
       case params[:olx_status]
