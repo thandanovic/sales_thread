@@ -103,6 +103,8 @@ GEM
       devise
       globalid
     diff-lcs (1.6.2)
+    discard (1.4.0)
+      activerecord (>= 4.2, < 9.0)
     dotenv (3.1.8)
     drb (2.2.3)
     ed25519 (1.4.0)
@@ -435,6 +437,7 @@ DEPENDENCIES
   debug
   devise (~> 4.9)
   devise-passwordless (~> 1.0)
+  discard
   factory_bot_rails (~> 6.4)
   faker (~> 3.2)
   image_processing (~> 1.2)

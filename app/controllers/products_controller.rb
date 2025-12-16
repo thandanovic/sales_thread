@@ -77,14 +77,14 @@ class ProductsController < ApplicationController
     if @product.has_olx_listing?
       begin
         @product.remove_from_olx
-        Rails.logger.info "[Products] Product #{@product.id} removed from OLX before deletion"
+        Rails.logger.info "[Products] Product #{@product.id} removed from OLX before soft deletion"
       rescue => e
         Rails.logger.error "[Products] Failed to remove product #{@product.id} from OLX: #{e.message}"
-        # Continue with deletion even if OLX removal fails
+        # Continue with soft deletion even if OLX removal fails
       end
     end
 
-    @product.destroy
+    @product.discard
     redirect_to shop_products_path(@shop), notice: 'Product was successfully deleted.'
   end
 
@@ -131,23 +131,20 @@ class ProductsController < ApplicationController
         begin
           product.remove_from_olx
           olx_removed_count += 1
-          Rails.logger.info "[Products] Product #{product.id} removed from OLX before deletion"
+          Rails.logger.info "[Products] Product #{product.id} removed from OLX before soft deletion"
         rescue => e
           olx_failed_count += 1
           Rails.logger.error "[Products] Failed to remove product #{product.id} from OLX: #{e.message}"
-          # Continue with deletion even if OLX removal fails
+          # Continue with soft deletion even if OLX removal fails
         end
       end
 
-      # This will cascade delete:
-      # - olx_listing (dependent: :destroy)
-      # - imported_products (dependent: :destroy)
-      # - images (ActiveStorage attachments)
-      product.destroy
+      # Soft delete the product
+      product.discard
       deleted_count += 1
     end
 
-    notice = "Successfully deleted #{deleted_count} product(s) and all associated data."
+    notice = "Successfully moved #{deleted_count} product(s) to trash."
     notice += " Removed #{olx_removed_count} listing(s) from OLX." if olx_removed_count > 0
     notice += " Failed to remove #{olx_failed_count} listing(s) from OLX." if olx_failed_count > 0
 

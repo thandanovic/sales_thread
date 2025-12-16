@@ -1,4 +1,6 @@
 class Product < ApplicationRecord
+  include Discard::Model
+
   belongs_to :shop
   belongs_to :olx_category_template, optional: true
 
@@ -23,6 +25,9 @@ class Product < ApplicationRecord
   scope :published, -> { where(published: true) }
   scope :unpublished, -> { where(published: false) }
   scope :by_source, ->(source) { where(source: source) }
+
+  # Default scope to exclude discarded products
+  default_scope -> { kept }
 
   # Callbacks
   before_save :calculate_final_price
