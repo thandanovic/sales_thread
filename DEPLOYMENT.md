@@ -346,3 +346,105 @@ fly open
 - Sign up at https://resend.com
 - Get API key from dashboard
 - Verify your sending domain for production
+
+---
+
+## Background Jobs with Solid Queue
+
+Solid Queue handles background job processing. There are two ways to run it on Fly.io:
+
+### Option 1: In-Process with Puma (Simple, Default)
+
+This runs Solid Queue inside the Puma web process. Already configured in `fly.toml`:
+
+```toml
+[env]
+  SOLID_QUEUE_IN_PUMA = 'true'
+```
+
+**Pros**: Simple, no extra processes
+**Cons**: Jobs compete with web requests for resources
+
+### Option 2: Separate Worker Process (Recommended for Production)
+
+Run Solid Queue as a dedicated process for better reliability and performance.
+
+#### Update fly.toml
+
+```toml
+app = 'slx-ba'
+primary_region = 'fra'
+
+[build]
+
+[env]
+  RAILS_LOG_TO_STDOUT = 'true'
+  RAILS_SERVE_STATIC_FILES = 'true'
+  # Remove SOLID_QUEUE_IN_PUMA for separate worker
+
+[processes]
+  app = "./bin/rails server"
+  worker = "./bin/rails solid_queue:start"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']  # Only app process handles HTTP
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[checks]
+  [checks.status]
+    port = 3000
+    type = 'http'
+    interval = '10s'
+    timeout = '2s'
+    grace_period = '5s'
+    method = 'GET'
+    path = '/up'
+```
+
+#### Deploy with separate worker
+
+```bash
+# Deploy the app
+fly deploy
+
+# Scale worker process (runs alongside web)
+fly scale count app=1 worker=1
+```
+
+#### Managing the worker
+
+```bash
+# Check all processes
+fly status
+
+# View worker logs specifically
+fly logs --process worker
+
+# SSH into worker machine
+fly ssh console --process worker
+
+# Restart worker only
+fly machine restart <worker-machine-id>
+```
+
+#### Monitor job queue
+
+```bash
+# Check pending jobs
+fly ssh console -C "/rails/bin/rails runner 'puts SolidQueue::Job.where(finished_at: nil).count'"
+
+# Check failed jobs
+fly ssh console -C "/rails/bin/rails runner 'puts SolidQueue::FailedExecution.count'"
+
+# Retry all failed jobs
+fly ssh console -C "/rails/bin/rails runner 'SolidQueue::FailedExecution.find_each(&:retry)'"
+```
