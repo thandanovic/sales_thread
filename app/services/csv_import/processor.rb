@@ -54,7 +54,7 @@ module CsvImport
 
     def process_imported_products
       @import_log.imported_products.where(status: 'pending').find_each do |imported_product|
-        normalizer = ImportedProduct::Normalizer.new(imported_product)
+        normalizer = ImportedProducts::Normalizer.new(imported_product)
         begin
           normalizer.process
         rescue => e

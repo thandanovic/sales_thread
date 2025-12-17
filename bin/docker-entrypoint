@@ -1,0 +1,8 @@
+#!/bin/bash -e
+
+# Run migrations if starting the Rails server
+if [ "${1}" == "./bin/rails" ] && [ "${2}" == "server" ]; then
+  ./bin/rails db:prepare
+fi
+
+exec "${@}"

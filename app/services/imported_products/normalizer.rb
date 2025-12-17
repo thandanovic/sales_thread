@@ -1,4 +1,4 @@
-module ImportedProduct
+module ImportedProducts
   class Normalizer
     def initialize(imported_product)
       @imported_product = imported_product

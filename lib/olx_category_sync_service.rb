@@ -29,17 +29,25 @@ class OlxCategorySyncService
     synced_count = 0
     failed_count = 0
     errors = []
+    all_categories_data = []
 
     begin
-      # Fetch all categories from OLX API
+      # Fetch root categories from OLX API
       response = OlxApiService.get('/categories', shop)
-      categories_data = response['data'] || response['categories'] || []
+      root_categories = response['data'] || response['categories'] || []
 
-      Rails.logger.info "[OLX Category Sync] Found #{categories_data.size} categories to sync"
+      Rails.logger.info "[OLX Category Sync] Found #{root_categories.size} root categories"
 
-      categories_data.each do |category_data|
+      # Recursively fetch all categories (including nested subcategories)
+      all_categories_data = fetch_all_categories_recursively(shop, root_categories)
+
+      Rails.logger.info "[OLX Category Sync] Found #{all_categories_data.size} total categories (including subcategories)"
+
+      # First pass: sync all categories without parent relationships
+      # This ensures all categories exist before we try to link them
+      all_categories_data.each do |category_data|
         begin
-          sync_category_data(category_data)
+          sync_category_data(category_data, skip_parent: true)
           synced_count += 1
         rescue => e
           failed_count += 1
@@ -49,6 +57,13 @@ class OlxCategorySyncService
         end
       end
 
+      # Second pass: update parent relationships
+      # Now that all categories exist, we can correctly link parents by external_id
+      Rails.logger.info "[OLX Category Sync] Setting up parent relationships..."
+      all_categories_data.each do |category_data|
+        update_parent_relationship(category_data)
+      end
+
       duration = Time.current - start_time
       Rails.logger.info "[OLX Category Sync] Completed in #{duration.round(2)}s. Synced: #{synced_count}, Failed: #{failed_count}"
 
@@ -56,7 +71,7 @@ class OlxCategorySyncService
         success: true,
         synced_count: synced_count,
         failed_count: failed_count,
-        total_count: categories_data.size,
+        total_count: all_categories_data.size,
         duration: duration,
         errors: errors
       }
@@ -67,6 +82,46 @@ class OlxCategorySyncService
       Rails.logger.error "[OLX Category Sync] Sync failed: #{e.message}"
       raise SyncError, "Sync failed: #{e.message}"
     end
+  end
+
+  ##
+  # Recursively fetch all categories including nested subcategories
+  #
+  # @param shop [Shop] Shop with OLX authentication
+  # @param categories [Array<Hash>] Categories to process
+  # @param collected [Array<Hash>] Already collected categories (for recursion)
+  # @return [Array<Hash>] All categories including subcategories
+  #
+  def self.fetch_all_categories_recursively(shop, categories, collected = [])
+    categories.each do |category|
+      collected << category
+
+      # Try to fetch subcategories for this category
+      begin
+        response = OlxApiService.get("/categories/#{category['id']}", shop)
+        response_data = response['data']
+
+        # Handle different API response formats:
+        # - For root categories: data is an Array of subcategories
+        # - For nested categories: data is a Hash with sub_categories array
+        subcategories = if response_data.is_a?(Array)
+                          response_data
+                        elsif response_data.is_a?(Hash)
+                          response_data['sub_categories'] || []
+                        else
+                          []
+                        end
+
+        if subcategories.any?
+          Rails.logger.debug "[OLX Category Sync] Found #{subcategories.size} subcategories for #{category['name']}"
+          fetch_all_categories_recursively(shop, subcategories, collected)
+        end
+      rescue => e
+        Rails.logger.warn "[OLX Category Sync] Could not fetch subcategories for #{category['id']}: #{e.message}"
+      end
+    end
+
+    collected
   end
 
   ##
@@ -183,22 +238,29 @@ class OlxCategorySyncService
   # Sync individual category data to database
   #
   # @param category_data [Hash] Category data from OLX API
+  # @param skip_parent [Boolean] Whether to skip setting parent (for first pass)
   # @return [OlxCategory] Synced category record
   #
-  def self.sync_category_data(category_data)
+  def self.sync_category_data(category_data, skip_parent: false)
     external_id = category_data['id']
 
     # Find or create category
     category = OlxCategory.find_or_initialize_by(external_id: external_id)
 
-    category.assign_attributes(
+    attrs = {
       name: category_data['name'],
       slug: category_data['slug'] || category_data['name']&.parameterize,
-      parent_id: category_data['parent_id'],
       has_shipping: category_data['has_shipping'] || false,
       has_brand: category_data['has_brand'] || false,
       metadata: extract_metadata(category_data)
-    )
+    }
+
+    # Only set parent if not skipping (for single category sync)
+    unless skip_parent
+      attrs[:parent_id] = resolve_parent_id(category_data['parent_id'])
+    end
+
+    category.assign_attributes(attrs)
 
     if category.save
       Rails.logger.debug "[OLX Category Sync] Synced category: #{category.name} (ID: #{external_id})"
@@ -208,6 +270,38 @@ class OlxCategorySyncService
     end
 
     category
+  end
+
+  ##
+  # Update parent relationship for a category
+  # Looks up the parent by external_id and sets the correct database ID
+  #
+  # @param category_data [Hash] Category data from OLX API
+  #
+  def self.update_parent_relationship(category_data)
+    return unless category_data['parent_id'].present?
+
+    category = OlxCategory.find_by(external_id: category_data['id'])
+    return unless category
+
+    parent_db_id = resolve_parent_id(category_data['parent_id'])
+    if category.parent_id != parent_db_id
+      category.update_column(:parent_id, parent_db_id)
+      Rails.logger.debug "[OLX Category Sync] Updated parent for #{category.name}: #{parent_db_id}"
+    end
+  end
+
+  ##
+  # Resolve external parent_id to internal database ID
+  #
+  # @param external_parent_id [Integer] External OLX parent category ID
+  # @return [Integer, nil] Internal database ID of parent category
+  #
+  def self.resolve_parent_id(external_parent_id)
+    return nil if external_parent_id.blank?
+
+    parent = OlxCategory.find_by(external_id: external_parent_id)
+    parent&.id
   end
 
   ##

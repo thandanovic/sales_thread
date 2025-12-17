@@ -175,6 +175,7 @@ class OlxSetupService
 
   ##
   # Fetch categories from OLX API and store in database
+  # Uses two-pass approach: first create all categories, then update parent relationships
   #
   # @return [Hash] Result with created/updated counts
   #
@@ -189,7 +190,7 @@ class OlxSetupService
 
     categories_data = response['data'] || response['categories'] || []
 
-    logger.info "  ✓ Received #{categories_data.length} categories from API"
+    logger.info "  ✓ Received #{categories_data.length} root categories from API"
 
     created_count = 0
     updated_count = 0
@@ -221,22 +222,20 @@ class OlxSetupService
 
     logger.info "  ✓ Total categories to process (including subcategories): #{all_categories.length}"
 
-    # Second pass: store all categories
+    # First pass: store all categories WITHOUT parent relationships
     all_categories.each_with_index do |category_data, index|
       external_id = category_data['id']
       name = category_data['name']
-      parent_id = category_data['parent_id']
       slug = category_data['slug']
       has_brand = category_data['show_brand'] || false
       has_shipping = category_data['shipping_available'] || false
 
-      logger.info "  Processing category #{index + 1}/#{all_categories.length}: #{name} (ID: #{external_id}, Parent: #{parent_id || 'None'})"
+      logger.info "  Processing category #{index + 1}/#{all_categories.length}: #{name} (ID: #{external_id})"
 
       category = OlxCategory.find_or_initialize_by(external_id: external_id)
 
       if category.new_record?
         category.name = name
-        category.parent_id = parent_id
         category.slug = slug
         category.has_brand = has_brand
         category.has_shipping = has_shipping
@@ -245,10 +244,9 @@ class OlxSetupService
         created_count += 1
         logger.info "    ✓ Created: #{name}"
       else
-        # Update existing
+        # Update existing (but don't touch parent_id yet)
         category.update!(
           name: name,
-          parent_id: parent_id,
           slug: slug,
           has_brand: has_brand,
           has_shipping: has_shipping,
@@ -256,6 +254,27 @@ class OlxSetupService
         )
         updated_count += 1
         logger.info "    ✓ Updated: #{name}"
+      end
+    end
+
+    # Second pass: update parent relationships
+    # Build lookup of external_id -> database_id
+    external_to_db_id = OlxCategory.pluck(:external_id, :id).to_h
+
+    logger.info "  Updating parent relationships..."
+    all_categories.each do |category_data|
+      next unless category_data['parent_id'].present?
+
+      external_id = category_data['id']
+      parent_external_id = category_data['parent_id']
+
+      category = OlxCategory.find_by(external_id: external_id)
+      next unless category
+
+      parent_db_id = external_to_db_id[parent_external_id]
+      if parent_db_id && category.parent_id != parent_db_id
+        category.update_column(:parent_id, parent_db_id)
+        logger.debug "    ✓ Set parent for #{category.name}: external #{parent_external_id} -> DB ID #{parent_db_id}"
       end
     end
 
@@ -449,6 +468,7 @@ class OlxSetupService
 
   ##
   # Import categories from CSV seed file
+  # Uses two-pass approach: first create all categories, then update parent relationships
   #
   # @return [Hash] Result with created/updated counts
   #
@@ -465,21 +485,26 @@ class OlxSetupService
     created_count = 0
     updated_count = 0
     total_count = 0
+    parent_mappings = [] # Store [external_id, parent_external_id] for second pass
 
+    # First pass: create/update all categories WITHOUT parent relationships
     CSV.foreach(csv_path, headers: true) do |row|
       total_count += 1
       external_id = row['external_id'].to_i
       name = row['name']
       slug = row['slug']
-      parent_id = row['parent_id'].present? ? row['parent_id'].to_i : nil
+      # Support both old 'parent_id' column and new 'parent_external_id' column
+      parent_external_id = row['parent_external_id'].present? ? row['parent_external_id'].to_i : (row['parent_id'].present? ? row['parent_id'].to_i : nil)
       has_shipping = row['has_shipping'] == '1' || row['has_shipping'] == 'true'
       has_brand = row['has_brand'] == '1' || row['has_brand'] == 'true'
 
-      # Parse metadata - handle double-escaped JSON from SQLite export
+      # Store parent mapping for second pass
+      parent_mappings << [external_id, parent_external_id] if parent_external_id
+
+      # Parse metadata
       metadata = nil
       if row['metadata'].present?
         begin
-          # Remove surrounding quotes if present and unescape
           metadata_str = row['metadata']
           metadata_str = metadata_str[1..-2] if metadata_str.start_with?('"') && metadata_str.end_with?('"')
           metadata_str = metadata_str.gsub('""', '"')
@@ -494,7 +519,6 @@ class OlxSetupService
       if category.new_record?
         category.name = name
         category.slug = slug
-        category.parent_id = parent_id
         category.has_shipping = has_shipping
         category.has_brand = has_brand
         category.metadata = metadata
@@ -505,13 +529,27 @@ class OlxSetupService
         category.update!(
           name: name,
           slug: slug,
-          parent_id: parent_id,
           has_shipping: has_shipping,
           has_brand: has_brand,
           metadata: metadata
         )
         updated_count += 1
         logger.debug "    ✓ Updated category: #{name} (ID: #{external_id})"
+      end
+    end
+
+    # Second pass: update parent relationships
+    # Build lookup of external_id -> database_id
+    external_to_db_id = OlxCategory.pluck(:external_id, :id).to_h
+
+    parent_mappings.each do |external_id, parent_external_id|
+      category = OlxCategory.find_by(external_id: external_id)
+      next unless category
+
+      parent_db_id = external_to_db_id[parent_external_id]
+      if parent_db_id && category.parent_id != parent_db_id
+        category.update_column(:parent_id, parent_db_id)
+        logger.debug "    ✓ Set parent for #{category.name}: #{parent_external_id} -> DB ID #{parent_db_id}"
       end
     end
 
