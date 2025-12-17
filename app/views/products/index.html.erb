@@ -54,6 +54,14 @@
             { data: { controller: "slim-select", slim_select_placeholder_value: "All Templates", slim_select_search_placeholder_value: "Search templates..." } } %>
       </div>
 
+      <div class="min-w-[120px]">
+        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-bodydark1">Per Page</label>
+        <%= f.select :per_page,
+            options_for_select([['50', 50], ['100', 100], ['500', 500], ['1000', 1000]], @per_page),
+            {},
+            class: "w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-4 pr-10 text-sm text-gray-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-strokedark dark:bg-boxdark dark:text-white appearance-none cursor-pointer" %>
+      </div>
+
       <div class="flex gap-2">
         <%= f.submit "Apply", class: "inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-dark transition-colors cursor-pointer" %>
         <%= link_to "Clear", shop_products_path(@shop), class: "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:text-bodydark1 dark:hover:bg-strokedark transition-colors" %>

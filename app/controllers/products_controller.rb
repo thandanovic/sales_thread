@@ -33,7 +33,9 @@ class ProductsController < ApplicationController
       @products = @products.where(olx_category_template_id: params[:template_id])
     end
 
-    @products = @products.page(params[:page]).per(100)
+    # Per page - allow 50, 100, 500, 1000 with default 100
+    @per_page = [50, 100, 500, 1000].include?(params[:per_page].to_i) ? params[:per_page].to_i : 100
+    @products = @products.page(params[:page]).per(@per_page)
     @templates = @shop.olx_category_templates.order(:name)
   end
 
