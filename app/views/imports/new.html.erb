@@ -39,15 +39,16 @@
 
         <div>
           <label class="mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1">
-            OLX Category Template (Optional)
+            OLX Category Template <span class="text-danger">*</span>
           </label>
           <%= select_tag :olx_category_template_id,
               options_from_collection_for_select(@shop.olx_category_templates, :id, :display_name),
               {
-                prompt: "Select a template to auto-configure OLX settings",
+                prompt: "Select a template...",
+                required: true,
                 data: { controller: "slim-select", slim_select_placeholder_value: "Select a template...", slim_select_search_placeholder_value: "Search templates..." }
               } %>
-          <p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">If selected, imported products will be automatically assigned this template for OLX publishing</p>
+          <p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">Required - imported products will be assigned this template for OLX publishing</p>
         </div>
 
         <div>
@@ -92,15 +93,16 @@
 
         <div>
           <label class="mb-2.5 block text-sm font-medium text-gray-700 dark:text-bodydark1">
-            OLX Category Template (Optional)
+            OLX Category Template <span class="text-danger">*</span>
           </label>
           <%= select_tag :olx_category_template_id,
               options_from_collection_for_select(@shop.olx_category_templates, :id, :display_name),
               {
-                prompt: "Select a template to auto-configure OLX settings",
+                prompt: "Select a template...",
+                required: true,
                 data: { controller: "slim-select", slim_select_placeholder_value: "Select a template...", slim_select_search_placeholder_value: "Search templates..." }
               } %>
-          <p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">If selected, imported products will be automatically assigned this template for OLX publishing</p>
+          <p class="mt-1 text-xs text-gray-500 dark:text-bodydark2">Required - imported products will be assigned this template for OLX publishing</p>
         </div>
 
         <% has_saved_credentials = @intercars_credentials.present? && @intercars_credentials['username'].present? %>

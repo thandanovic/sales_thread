@@ -23,6 +23,14 @@ class ImportsController < ApplicationController
     @import.status = 'pending'
     @import.olx_category_template_id = params[:olx_category_template_id] if params[:olx_category_template_id].present?
 
+    # Require OLX category template for all imports
+    if params[:olx_category_template_id].blank?
+      @import.errors.add(:base, 'OLX Category Template is required')
+      @intercars_credentials = @shop.integration_credentials('intercars')
+      render :new, status: :unprocessable_entity
+      return
+    end
+
     if @import.source == 'csv' && params[:csv_file].present?
       # Handle CSV upload
       handle_csv_upload(params[:csv_file])
