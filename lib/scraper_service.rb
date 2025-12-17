@@ -306,10 +306,11 @@ class ScraperService
     # IMPORTANT: Always set this value (even if empty) to clear stale data from previous runs
     env_vars[:EXISTING_SOURCE_IDS] = existing_source_ids.any? ? existing_source_ids.join(',') : ''
 
+    # Also write to .env file for backwards compatibility (local dev)
     update_env(env_vars)
 
-    # Execute with progress monitoring
-    result = execute_script_with_progress('scrape', timeout: max_products * 30, import_log: import_log, max_products: max_products)
+    # Execute with progress monitoring - pass env vars directly for reliability
+    result = execute_script_with_progress('scrape', timeout: max_products * 30, import_log: import_log, max_products: max_products, env_vars: env_vars)
 
     if result[:success]
       # Find the latest products JSON file
@@ -466,14 +467,22 @@ class ScraperService
   # Execute script with progress monitoring
   # Parses output to track scraping progress and updates import_log
   #
-  def self.execute_script_with_progress(script_name, timeout: 120, import_log: nil, max_products: 10)
+  def self.execute_script_with_progress(script_name, timeout: 120, import_log: nil, max_products: 10, env_vars: {})
     script_file = SCRAPER_DIR.join("#{script_name}.js")
 
     unless script_file.exist?
       return { success: false, error: "Script not found: #{script_name}.js" }
     end
 
-    cmd = "cd #{SCRAPER_DIR} && node #{script_name}.js"
+    # Build environment hash with string keys and values for subprocess
+    # Merge with current ENV to preserve PATH and other system vars
+    subprocess_env = ENV.to_h.merge(env_vars.transform_keys(&:to_s).transform_values(&:to_s))
+
+    # Log the env vars being passed (without sensitive data)
+    safe_keys = env_vars.keys.map(&:to_s) - ['INTERCARS_PASSWORD']
+    logger.info "Passing env vars to scraper: #{safe_keys.map { |k| "#{k}=#{subprocess_env[k]}" }.join(', ')}"
+
+    cmd = "node #{script_name}.js"
 
     output = []
     error_output = []
@@ -482,7 +491,8 @@ class ScraperService
     last_scraped_count = 0
 
     begin
-      Open3.popen3(cmd) do |stdin, stdout, stderr, wait_thr|
+      # Pass env vars directly to subprocess - more reliable than .env file in multi-worker setup
+      Open3.popen3(subprocess_env, cmd, chdir: SCRAPER_DIR.to_s) do |stdin, stdout, stderr, wait_thr|
         stdin.close
 
         # Collect output with timeout
