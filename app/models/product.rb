@@ -113,8 +113,68 @@ class Product < ApplicationRecord
   # @return [String] The generated title
   #
   def generate_olx_title
-    return title unless olx_category_template&.title_template.present?
+    raw_title = if olx_category_template&.title_template.present?
+      generate_olx_title_from_template
+    else
+      title
+    end
 
+    # Sanitize and truncate the title for OLX
+    sanitize_olx_title(raw_title)
+  end
+
+  ##
+  # Sanitize and truncate title for OLX API requirements
+  # - Max 65 characters
+  # - Only Latin script + Bosnian affricates (č, ć, š, ž, đ)
+  # - Don't cut words in the middle
+  #
+  # @param text [String] The raw title
+  # @return [String] Sanitized and truncated title
+  #
+  def sanitize_olx_title(text)
+    return '' if text.blank?
+
+    # Step 1: Transliterate common diacritical marks to basic Latin equivalents
+    # This handles characters like ë -> e, ö -> o, ü -> u, etc.
+    transliterations = {
+      "\u00EB" => 'e', "\u00CB" => 'E', "\u00EA" => 'e', "\u00CA" => 'E', "\u00E8" => 'e', "\u00C8" => 'E', "\u00E9" => 'e', "\u00C9" => 'E',
+      "\u00F6" => 'o', "\u00D6" => 'O', "\u00F4" => 'o', "\u00D4" => 'O', "\u00F2" => 'o', "\u00D2" => 'O', "\u00F3" => 'o', "\u00D3" => 'O',
+      "\u00FC" => 'u', "\u00DC" => 'U', "\u00FB" => 'u', "\u00DB" => 'U', "\u00F9" => 'u', "\u00D9" => 'U', "\u00FA" => 'u', "\u00DA" => 'U',
+      "\u00E4" => 'a', "\u00C4" => 'A', "\u00E2" => 'a', "\u00C2" => 'A', "\u00E0" => 'a', "\u00C0" => 'A', "\u00E1" => 'a', "\u00C1" => 'A',
+      "\u00EF" => 'i', "\u00CF" => 'I', "\u00EE" => 'i', "\u00CE" => 'I', "\u00EC" => 'i', "\u00CC" => 'I', "\u00ED" => 'i', "\u00CD" => 'I',
+      "\u00FF" => 'y', "\u0178" => 'Y', "\u00F1" => 'n', "\u00D1" => 'N',
+      "\u2013" => '-', "\u2014" => '-', "\u2018" => "'", "\u2019" => "'", "\u201C" => '"', "\u201D" => '"'
+    }
+
+    sanitized = text.to_s
+    transliterations.each { |from, to| sanitized = sanitized.gsub(from, to) }
+
+    # Step 2: Keep only Latin letters, Bosnian affricates, numbers, and basic punctuation
+    # Allowed characters: a-z, A-Z, 0-9, čćšžđČĆŠŽĐ, space, dash, slash, dot, comma
+    sanitized = sanitized.gsub(/[^a-zA-Z0-9čćšžđČĆŠŽĐ\s\-\/.,()]+/, ' ')
+
+    # Remove multiple spaces
+    sanitized = sanitized.gsub(/\s+/, ' ').strip
+
+    # Step 3: Truncate to 65 chars without cutting words
+    return sanitized if sanitized.length <= 65
+
+    # Find the last space before the 65 char limit
+    truncated = sanitized[0...65]
+    last_space = truncated.rindex(' ')
+
+    if last_space && last_space > 30  # Keep at least 30 chars
+      truncated = truncated[0...last_space]
+    end
+
+    truncated.strip
+  end
+
+  ##
+  # Generate OLX title from template (without sanitization)
+  #
+  def generate_olx_title_from_template
     template = olx_category_template.title_template
 
     # Replace placeholders with actual values

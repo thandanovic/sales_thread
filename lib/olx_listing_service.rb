@@ -325,8 +325,9 @@ class OlxListingService
     product.save if product.changed?
 
     # OLX has a 65 character limit for titles
+    # Use the product's sanitize method which also handles word boundaries
     raw_title = product.olx_title.presence || product.title
-    truncated_title = raw_title.to_s.truncate(65, omission: '')
+    truncated_title = product.sanitize_olx_title(raw_title)
 
     payload = {
       title: truncated_title,
