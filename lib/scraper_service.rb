@@ -588,9 +588,9 @@ class ScraperService
 
     vars.each do |key, value|
       key_str = key.to_s
-      # Use multiline regex to handle different line endings
-      if content.match?(/^#{key_str}=/m)
-        content = content.gsub(/^#{key_str}=.*$/m, "#{key_str}=#{value}")
+      # Match key=value on its own line (non-greedy, stops at newline)
+      if content.match?(/^#{key_str}=/)
+        content = content.gsub(/^#{key_str}=[^\n]*/, "#{key_str}=#{value}")
       else
         content += "#{content.end_with?("\n") || content.empty? ? '' : "\n"}#{key_str}=#{value}\n"
       end
