@@ -155,8 +155,10 @@ class OlxListingService
       should_skip_images = skip_images
       if should_skip_images.nil?
         # Auto-detect: skip images if listing already has images on OLX (any source)
+        # Images can be in metadata['images'], metadata['data']['images'], or metadata['photos']
         if olx_listing.metadata.present?
-          existing_images = olx_listing.metadata['images'] ||
+          existing_images = olx_listing.metadata.dig('data', 'images') ||
+                           olx_listing.metadata['images'] ||
                            olx_listing.metadata['photos'] ||
                            olx_listing.metadata['pictures'] || []
           should_skip_images = existing_images.any?
@@ -176,9 +178,17 @@ class OlxListingService
       # Preserve existing images in metadata if response doesn't include them
       merged_metadata = response
       if should_skip_images && olx_listing.metadata.present?
-        original_images = olx_listing.metadata['images'] || olx_listing.metadata['photos'] || olx_listing.metadata['pictures']
-        if original_images.present? && !merged_metadata['images'].present?
-          merged_metadata['images'] = original_images
+        original_images = olx_listing.metadata.dig('data', 'images') ||
+                         olx_listing.metadata['images'] ||
+                         olx_listing.metadata['photos'] ||
+                         olx_listing.metadata['pictures']
+        response_images = merged_metadata.dig('data', 'images') || merged_metadata['images']
+        if original_images.present? && response_images.blank?
+          if merged_metadata['data'].is_a?(Hash)
+            merged_metadata['data']['images'] = original_images
+          else
+            merged_metadata['images'] = original_images
+          end
         end
       end
 
