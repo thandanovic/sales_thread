@@ -151,10 +151,11 @@ class OlxListingService
       Rails.logger.info "[OLX Listing] Updating listing #{olx_listing.external_listing_id} for product #{product.id}"
 
       # IMPORTANT: Check for existing images BEFORE the update (response may not include images)
+      # Skip images by default on update to prevent duplicates - images are uploaded on create
       should_skip_images = skip_images
       if should_skip_images.nil?
-        # Auto-detect: skip images for OLX-synced products that already have images on OLX
-        if product.source == 'olx' && olx_listing.metadata.present?
+        # Auto-detect: skip images if listing already has images on OLX (any source)
+        if olx_listing.metadata.present?
           existing_images = olx_listing.metadata['images'] ||
                            olx_listing.metadata['photos'] ||
                            olx_listing.metadata['pictures'] || []
@@ -163,6 +164,8 @@ class OlxListingService
             Rails.logger.info "[OLX Listing] Will skip image upload - listing already has #{existing_images.length} images on OLX"
           end
         end
+        # Default to skipping images on update (they were uploaded on create)
+        should_skip_images = true if should_skip_images.nil?
       end
 
       payload = build_listing_payload
