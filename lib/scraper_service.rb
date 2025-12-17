@@ -583,17 +583,21 @@ class ScraperService
   end
 
   def self.update_env(vars = {})
-    if ENV_FILE.exist?
-      content = File.read(ENV_FILE)
-      vars.each do |key, value|
-        if content.match?(/^#{key}=/)
-          content.gsub!(/^#{key}=.*$/, "#{key}=#{value}")
-        else
-          content += "\n#{key}=#{value}"
-        end
+    # Read existing content or start fresh
+    content = ENV_FILE.exist? ? File.read(ENV_FILE) : ""
+
+    vars.each do |key, value|
+      key_str = key.to_s
+      # Use multiline regex to handle different line endings
+      if content.match?(/^#{key_str}=/m)
+        content = content.gsub(/^#{key_str}=.*$/m, "#{key_str}=#{value}")
+      else
+        content += "#{content.end_with?("\n") || content.empty? ? '' : "\n"}#{key_str}=#{value}\n"
       end
-      File.write(ENV_FILE, content)
     end
+
+    File.write(ENV_FILE, content)
+    logger.info "Updated .env file with: #{vars.keys.join(', ')}"
   end
 
   def self.latest_products_file
